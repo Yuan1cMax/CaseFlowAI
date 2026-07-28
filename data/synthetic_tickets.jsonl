@@ -1,0 +1,3 @@
+{"customer_id":"synthetic-customer-01","subject":"退款投诉","content":"商品破损，我要求退款并准备投诉","channel":"web"}
+{"customer_id":"synthetic-customer-02","subject":"物流进度","content":"想了解物流进度","channel":"web"}
+{"customer_id":"synthetic-customer-03","subject":"质量问题","content":"收到商品时发现损坏，已拍照","channel":"email"}

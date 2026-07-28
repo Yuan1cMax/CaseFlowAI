@@ -1,0 +1,10 @@
+services:
+  caseflow-api:
+    build: .
+    ports:
+      - "8010:8010"
+    volumes:
+      - ./data:/app/data
+    environment:
+      CASEFLOW_DATABASE: /app/data/caseflow.db
+    restart: unless-stopped

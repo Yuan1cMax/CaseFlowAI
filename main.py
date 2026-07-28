@@ -253,6 +253,7 @@ class DatabaseConnection:
         if self.postgres:
             if query == "BEGIN IMMEDIATE":
                 query = "BEGIN"
+            query = query.replace("%", "%%")
             query = query.replace("?", "%s")
         return self.connection.execute(query, parameters)
 

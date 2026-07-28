@@ -677,7 +677,7 @@ def build_tradeops_router(db_factory: DbFactory, now_factory: NowFactory, requir
         with db_factory() as db:
             usage = _rows(db.execute(
                 """SELECT module, SUM(active_users) AS active_users, SUM(action_count) AS action_count,
-                          SUM(error_count) AS error_count, ROUND(AVG(avg_minutes), 1) AS avg_minutes
+                          SUM(error_count) AS error_count, ROUND(CAST(AVG(avg_minutes) AS NUMERIC), 1) AS avg_minutes
                    FROM erp_usage_stats WHERE id LIKE 'SYN-%' GROUP BY module ORDER BY action_count DESC"""
             ).fetchall())
             enablement = _rows(db.execute("SELECT * FROM erp_enablement WHERE id LIKE 'SYN-%' ORDER BY scheduled_at DESC").fetchall())

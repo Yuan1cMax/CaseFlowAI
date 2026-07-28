@@ -151,3 +151,16 @@ def test_public_mutations_reject_non_synthetic_ids(erp_client: TestClient):
         json={"customer_id": "CUSTOMER-PRIVATE", "inventory_id": "SYN-INV-001", "rental_days": 1},
     )
     assert response.status_code == 403
+
+
+def test_postgres_compatibility_escapes_literal_percent():
+    import main
+
+    class RecordingConnection:
+        def execute(self, query, parameters):
+            return query, parameters
+
+    connection = main.DatabaseConnection(RecordingConnection(), postgres=True)
+    query, parameters = connection.execute("SELECT 1 WHERE id LIKE 'SYN-%' AND status = ?", ("active",))
+    assert query == "SELECT 1 WHERE id LIKE 'SYN-%%' AND status = %s"
+    assert parameters == ("active",)

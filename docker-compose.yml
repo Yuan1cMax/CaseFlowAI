@@ -21,6 +21,7 @@ services:
     environment:
       CASEFLOW_DATABASE_URL: postgresql://caseflow:${POSTGRES_PASSWORD}@postgres:5432/caseflow
       CASEFLOW_ADMIN_TOKEN: ${CASEFLOW_ADMIN_TOKEN:?Set CASEFLOW_ADMIN_TOKEN in .env}
+      PUBLIC_DEMO_MODE: ${PUBLIC_DEMO_MODE:-0}
       ANALYZER_MODE: ${ANALYZER_MODE:-rules}
       CRM_WEBHOOK_URL: ${CRM_WEBHOOK_URL:-}
       CRM_WEBHOOK_TOKEN: ${CRM_WEBHOOK_TOKEN:-}
@@ -34,6 +35,7 @@ services:
     command: ["python", "worker.py"]
     environment:
       CASEFLOW_DATABASE_URL: postgresql://caseflow:${POSTGRES_PASSWORD}@postgres:5432/caseflow
+      PUBLIC_DEMO_MODE: ${PUBLIC_DEMO_MODE:-0}
       CRM_WEBHOOK_URL: ${CRM_WEBHOOK_URL:-}
       CRM_WEBHOOK_TOKEN: ${CRM_WEBHOOK_TOKEN:-}
       WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS:-2}

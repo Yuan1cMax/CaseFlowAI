@@ -39,6 +39,7 @@ MAX_JOB_ATTEMPTS = int(os.getenv("MAX_JOB_ATTEMPTS", "3"))
 CRM_WEBHOOK_URL = os.getenv("CRM_WEBHOOK_URL", "").strip()
 CRM_WEBHOOK_TOKEN = os.getenv("CRM_WEBHOOK_TOKEN", "").strip()
 CASEFLOW_ADMIN_TOKEN = os.getenv("CASEFLOW_ADMIN_TOKEN", "").strip()
+PUBLIC_DEMO_MODE = os.getenv("PUBLIC_DEMO_MODE", "0") == "1"
 
 
 class Priority(StrEnum):
@@ -411,7 +412,8 @@ async def request_context(request: Request, call_next):
 def health() -> dict[str, str]:
     with database() as db:
         db.execute("SELECT 1").fetchone()
-    return {"status": "ok", "database": "ok", "mode": "synthetic-demo"}
+    backend = "postgresql" if DATABASE_URL.startswith(("postgres://", "postgresql://")) else "sqlite"
+    return {"status": "ok", "database": "ok", "database_backend": backend, "mode": "synthetic-demo"}
 
 
 @app.get("/", include_in_schema=False)
@@ -498,6 +500,23 @@ def review_ticket(ticket_id: str, decision: ReviewDecision, admin_token: str | N
             audit(db, ticket_id, "review_approved", decision.reviewer, {"note": decision.note, "job_id": job_id})
         db.execute("COMMIT")
         return ticket_response(db, ticket_id)
+
+
+@app.post("/demo/tickets/{ticket_id}/approve", response_model=TicketResponse)
+def approve_synthetic_demo_ticket(ticket_id: str):
+    if not PUBLIC_DEMO_MODE:
+        raise HTTPException(status_code=404, detail="public demo approval is disabled")
+    with database() as db:
+        ticket = db.execute("SELECT customer_id FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
+        if ticket is None:
+            raise HTTPException(status_code=404, detail="ticket not found")
+        if not ticket["customer_id"].startswith("synthetic-"):
+            raise HTTPException(status_code=403, detail="only synthetic demo tickets can use this endpoint")
+    return review_ticket(
+        ticket_id,
+        ReviewDecision(decision="approve", reviewer="public-demo-reviewer", note="synthetic demonstration approval"),
+        admin_token=CASEFLOW_ADMIN_TOKEN,
+    )
 
 
 def process_one_delivery_job() -> dict[str, str]:

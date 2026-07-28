@@ -96,3 +96,25 @@ def test_delivery_failure_retries_then_sets_terminal_ticket_status(client: TestC
         failed = client.post("/jobs/run-once")
         assert failed.status_code == 502
     assert client.get(f"/tickets/{ticket['id']}").json()["status"] == "delivery_failed"
+
+
+def test_public_demo_approval_is_limited_to_synthetic_tickets(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("CASEFLOW_DATABASE", str(tmp_path / "caseflow-demo.db"))
+    monkeypatch.setenv("CASEFLOW_ADMIN_TOKEN", "private-operator-token")
+    monkeypatch.setenv("PUBLIC_DEMO_MODE", "1")
+    import main
+    importlib.reload(main)
+    with TestClient(main.app) as demo_client:
+        synthetic = demo_client.post(
+            "/tickets",
+            headers={"Idempotency-Key": "public-synthetic-key"},
+            json={"customer_id": "synthetic-browser-01", "subject": "退款", "content": "申请退款", "channel": "web"},
+        ).json()
+        assert demo_client.post(f"/demo/tickets/{synthetic['id']}/approve").status_code == 200
+
+        non_synthetic = demo_client.post(
+            "/tickets",
+            headers={"Idempotency-Key": "public-real-key-0001"},
+            json={"customer_id": "customer-01", "subject": "退款", "content": "申请退款", "channel": "web"},
+        ).json()
+        assert demo_client.post(f"/demo/tickets/{non_synthetic['id']}/approve").status_code == 403

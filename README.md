@@ -1,71 +1,156 @@
-# ServiceOps AI（仓库名：CaseFlowAI）
+# TradeOps ERP - AI 驱动的交易履约运营中台
 
-客服质检、投诉升级与 SOP 协同平台。它是一个独立研发、基于客服业务场景抽象的展示项目，不连接真实客户资料或生产 CRM。
+TradeOps ERP 是一套面向数字商品交易业务的 ERP 原型，覆盖售前线索、客户、账号库存、订单履约、售后、风控审批、SOP、需求管理、系统集成和运营分析。项目基于作者此前公司的业务经验独立设计研发，所有客户、订单、金额、使用统计和系统状态均为脱敏后的固定合成数据。
 
-- 在线演示：`http://101.43.56.2:8898/caseflow/`
-- GitHub：`https://github.com/Yuan1cMax/CaseFlowAI`
+原 `ServiceOps AI` 的投诉分流、人工审批、审计、幂等与异步投递能力已保留，并成为 TradeOps ERP 的售后子域和基础工程能力。
 
-## 解决的问题
+## 在线地址
 
-客服主管处理投诉时，往往需要在风险识别、SOP 查阅、人工判断和跨系统回写之间来回切换。ServiceOps AI 将这些环节组织为可审计的状态机：
+- 产品演示：`http://101.43.56.2:8898/tradeops/`
+- API 文档：`http://101.43.56.2:8898/tradeops/docs`
+- 个人作品集：`http://101.43.56.2:8898/`
 
-1. API 接收工单，使用 `Idempotency-Key` 避免重复创建。
-2. 分类适配器输出类别、优先级、实体、置信度和人工审核判断。
-3. SOP 检索器返回规则编号与依据，生成可审核的回复草稿。
-4. 退款、投诉、赔偿、舆情等高风险工单进入人工审核队列。
-5. 已批准工单进入投递队列；worker 原子认领任务，并由 CRM 适配器以 `Idempotency-Key` 写入目标系统。
-6. 投递失败记录错误类型并重试，达到上限后将工单标记为 `delivery_failed`。
-7. 每一步写入审计事件，可按工单回放处理过程。
+## 为什么做这套系统
 
-公开展示页会自动加载 10 条固定的合成案例，以看板形式展示待审核、高风险和已投递状态。看板接口只返回 `synthetic-*` 客户标识的数据；即使未来与真实数据共用数据库，也不会将非合成记录暴露给公开页面。
+TunTunAgent 解决了售前问答与商品导购，但业务问题不会在 AI 回复结束时消失。高意向线索需要跟进，商品账号需要锁定，订单需要履约，高风险交易需要审批，异常需要进入售后，系统上线后还要观察使用率和流程瓶颈。
 
-默认使用确定性规则分类器和模拟 CRM，因此测试可重复且不会调用外部模型或真实业务系统。部署时可切换为 PostgreSQL、OpenAI-compatible 结构化分析器和受令牌保护的 CRM Webhook，三者均保持同一业务契约。
+TradeOps ERP 将这些分散动作放进统一业务主键、确定性状态机和可回放审计轨迹中，形成以下闭环：
 
-## 运行
-
-```bash
-python -m pip install -r requirements.txt
-uvicorn main:app --reload --port 8010
+```text
+AI 导购 -> 售前线索 -> 客户 -> 库存锁定 -> 订单风控 -> 人工审批
+       -> 履约交付 -> 售后工单 -> 退款审批 -> 库存维护/回收 -> 运营复盘
 ```
 
-健康检查：`GET http://127.0.0.1:8010/health`
+## 可验证结果
 
-创建高风险工单：
+- 11 个业务与运营模块共用统一数据源，不是互不关联的静态页面。
+- 下单使用数据库事务和幂等键，非可用库存无法被重复分配。
+- 风险分达到阈值时强制进入人工审批，审批前不能履约。
+- 退款批准会同步更新工单、订单和库存状态，并写入跨实体审计事件。
+- 公开演示只能操作 `SYN-*` 合成记录，避免误触真实数据。
+- 16 项自动化测试通过，其中 9 项覆盖 ERP 跨模块业务副作用。
+- PostgreSQL 用于部署，SQLite 用于本地开发和隔离测试。
 
-```bash
-curl -X POST http://127.0.0.1:8010/tickets \
-  -H "Content-Type: application/json" \
-  -H "Idempotency-Key: demo-refund-0001" \
-  -d '{"customer_id":"synthetic-customer-01","subject":"退款投诉","content":"商品破损，我要求退款并准备投诉","channel":"web"}'
+上述数量是仓库当前实现和自动化测试结果，不代表真实生产用户、收入或 SLA。
+
+## 模块地图
+
+| 模块 | 解决的问题 | 关键控制点 |
+| --- | --- | --- |
+| 运营工作台 | 管理者统一查看待办、风险和履约状态 | 指标下钻到订单与审批 |
+| 需求中心 | 统一收集部门痛点和版本计划 | P0/P1、负责人、验收标准 |
+| 客户与线索 | AI 导购结果进入人工跟进流程 | 线索转客户保持幂等 |
+| 账号库存 | 管理唯一数字商品的可用、锁定、租用和维护状态 | 事务锁定，防止重复分配 |
+| 订单履约 | 管理租期、金额、押金、风险和交付 | 明确状态迁移和前置条件 |
+| 售后工单 | 聚合订单、客户、SOP 和回复草稿 | 资金动作禁止 AI 自动承诺 |
+| 风控审批 | 处理高风险订单与退款 | 人工最终决策、完整审计 |
+| SOP | 统一处置规则和版本 | AI 可检索，业务规则仍确定性执行 |
+| 集成监控 | 观察 Dify、业务 API、支付 Webhook 和通知 | 幂等、重试、降级方案 |
+| 培训运营 | 记录培训、版本宣导与完成率 | 角色化培训与上线支持 |
+| 运营分析 | 从使用和流程数据识别瓶颈 | 输出证据、问题和改进动作 |
+
+## AI 的边界
+
+AI 在项目中承担：
+
+- 售前意图、预算与偏好提取
+- 售后分类、优先级判断、SOP 推荐和回复草拟
+- 风险摘要、需求摘要与流程改进建议
+
+AI 不承担：
+
+- 库存是否可分配
+- 订单是否允许履约
+- 退款金额是否批准
+- 状态迁移、权限校验与审计记录
+
+这些确定性动作由数据库约束、事务、规则阈值和人工审批控制。模型不可用时可以回退到规则分类和人工队列，不阻断核心交易主流程。
+
+## 技术架构
+
+```text
+Browser ERP Console
+        |
+        v
+FastAPI API / Request ID / Operator Guard
+        |
+        +-- TradeOps domain service
+        |     +-- leads / customers / inventory / orders
+        |     +-- service cases / approvals / SOP
+        |     +-- requirements / integrations / operations
+        |
+        +-- AI adapter
+        |     +-- rules fallback
+        |     +-- OpenAI-compatible structured output
+        |
+        +-- integration adapter / durable worker
+        |
+        v
+PostgreSQL (deploy) / SQLite (local tests)
 ```
 
-## 验证
+## 核心状态机
 
-```bash
-python -m pytest -q
-python evaluate.py
+订单：
+
+```text
+available inventory
+  -> pending_risk -> approved -> pending_fulfillment -> active -> completed
+                  -> rejected -> cancelled -> inventory released
+  -> exception -> service case -> refund approval -> refunded -> maintenance
 ```
 
-当前 7 项自动化测试覆盖高风险人工审核与投递、幂等重放、低风险自动队列、审核令牌鉴权、投递失败终态、公开演示边界，以及合成看板的数据隔离。`evaluate.py` 对 10 条合成人工标注样本运行规则基线，当前分类、优先级和人工审核判断各为 100%；该结果仅代表该小型合成集，不能外推为真实客户数据或模型效果。
+售后：
 
-## 容器化部署
-
-`docker-compose.yml` 运行 PostgreSQL、API 与独立 worker。先复制 `.env.docker.example` 为 `.env` 并生成随机 `POSTGRES_PASSWORD`、`CASEFLOW_ADMIN_TOKEN`：
-
-```bash
-docker-compose up -d --build
-docker-compose ps
-curl http://127.0.0.1:8010/health
+```text
+created -> processing
+        -> pending_review -> approved -> resolved
+                          -> rejected -> processing
 ```
 
-生产环境的审核和手工投递接口需使用 `X-Admin-Token`。worker 从数据库中轮询待处理任务，数据库是状态真相来源，因此 API/worker 重启不会丢失已入库任务。`CRM_WEBHOOK_URL` 为空时启用本地模拟 CRM；填写该项前必须确认对方接口具备鉴权、幂等和最小化数据接收能力。
+## 文档交付
 
-## 模型接入
+- [产品需求说明](docs/PRODUCT_REQUIREMENTS.md)
+- [验收场景](docs/ACCEPTANCE_SCENARIOS.md)
+- [实施与运行手册](docs/IMPLEMENTATION_RUNBOOK.md)
+- [培训与上线计划](docs/TRAINING_AND_ROLLOUT.md)
+- [运营分析样例](docs/OPERATIONS_REPORT_SAMPLE.md)
 
-默认 `ANALYZER_MODE=rules`，用于可重复演示。设置 `ANALYZER_MODE=openai_compatible`，并提供 `LLM_BASE_URL`、`LLM_API_KEY`、`LLM_MODEL` 后，可启用兼容 OpenAI Chat Completions 的结构化输出适配器。模型响应必须通过 Pydantic 校验；解析失败或上游不可用时，工单创建会返回 `503`，不会默认为低风险自动放行。
+## 本地运行
 
-## 工程边界
+```bash
+python -m venv .venv
+.venv/Scripts/pip install -r requirements.txt
+set PUBLIC_DEMO_MODE=1
+.venv/Scripts/uvicorn main:app --reload --port 8000
+```
 
-- SQLite/WAL 用于本地演示及并发正确性测试；Docker 部署使用 PostgreSQL 与独立 worker，但尚未完成多实例压测和灾备演练。
-- 默认 CRM 适配器为模拟实现；`HttpCrmAdapter` 已实现标准 Webhook 契约，但不能宣称已接入企业 CRM、影刀或生产 RPA，除非实际完成集成及验收。
-- 默认分类器为本地确定性实现；OpenAI-compatible 适配器已包含结构化输出校验，但尚未在真实敏感数据上评测。接入前仍应完成脱敏、扩大标注集与人工兜底策略。
+打开 `http://127.0.0.1:8000`。首次进入会幂等加载固定合成数据。
+
+运行测试：
+
+```bash
+.venv/Scripts/python -m pytest -q
+```
+
+容器部署：
+
+```bash
+docker compose up -d --build
+```
+
+## 公开演示安全边界
+
+- 公开写操作只接受 `SYN-*` 合成实体。
+- `.env`、数据库、日志和密钥不进入仓库。
+- 所有外部系统名称、客户、订单和金额均为演示数据。
+- `CASEFLOW_ADMIN_TOKEN` 可保护审批、履约和 worker 操作；名称为兼容旧版本保留。
+- 真实环境还应接入企业 SSO/RBAC、数据库迁移工具、密钥管理、指标告警和备份恢复演练。
+
+## 项目定位
+
+本项目可以被准确描述为：
+
+> 基于原公司数字商品交易业务经验，独立完成需求梳理、产品设计和工程实现的 ERP 运营中台原型；通过合成数据演示线索、库存、订单、售后、审批、集成监控与运营复盘闭环。
+
+不能描述为原公司正式采购、真实生产运行或拥有真实经营数据。

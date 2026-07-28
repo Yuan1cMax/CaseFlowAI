@@ -14,7 +14,7 @@ services:
       retries: 5
     restart: unless-stopped
 
-  caseflow-api:
+  tradeops-api:
     build: .
     ports:
       - "8010:8010"
@@ -30,7 +30,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  caseflow-worker:
+  tradeops-worker:
     build: .
     command: ["python", "worker.py"]
     environment:

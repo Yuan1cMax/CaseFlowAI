@@ -1,4 +1,4 @@
-"""ServiceOps AI: customer-service triage, human review, and CRM delivery demo."""
+"""TradeOps ERP API with a backward-compatible ServiceOps workflow."""
 
 from __future__ import annotations
 
@@ -19,8 +19,10 @@ from typing import Any, Iterator, Protocol
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field, ValidationError
+
+from tradeops import build_tradeops_router, initialize_tradeops_database
 
 try:
     import psycopg
@@ -31,7 +33,7 @@ except ImportError:  # SQLite-only local development remains supported.
 
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"), format="%(asctime)s %(levelname)s %(message)s")
-logger = logging.getLogger("caseflow")
+logger = logging.getLogger("tradeops")
 
 DATABASE_URL = os.getenv("CASEFLOW_DATABASE_URL", "").strip()
 DATABASE_PATH = Path(os.getenv("CASEFLOW_DATABASE", "caseflow.db"))
@@ -430,10 +432,11 @@ _init_lock = threading.Lock()
 async def lifespan(_: FastAPI):
     with _init_lock:
         initialize_database()
+        initialize_tradeops_database(database)
     yield
 
 
-app = FastAPI(title="ServiceOps AI", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="TradeOps ERP", version="1.0.0", lifespan=lifespan)
 
 
 @app.middleware("http")
@@ -456,6 +459,11 @@ def health() -> dict[str, str]:
 @app.get("/", include_in_schema=False)
 def dashboard() -> FileResponse:
     return FileResponse(Path(__file__).with_name("index.html"))
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon() -> Response:
+    return Response(status_code=204)
 
 
 @app.get("/dashboard/summary")
@@ -643,3 +651,6 @@ def process_one_delivery_job() -> dict[str, str]:
 def run_one_delivery_job(admin_token: str | None = Header(default=None, alias="X-Admin-Token")) -> dict[str, str]:
     require_operator(admin_token)
     return process_one_delivery_job()
+
+
+app.include_router(build_tradeops_router(database, utc_now, require_operator, PUBLIC_DEMO_MODE))

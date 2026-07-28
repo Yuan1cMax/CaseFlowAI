@@ -1,67 +1,1263 @@
 <!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ServiceOps AI | 客服质检与投诉协同</title>
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <style>
-    :root { --ink:#14201e; --muted:#62716d; --line:#d8e1de; --paper:#f4f7f6; --white:#fff; --teal:#007a68; --teal-soft:#e8f4f0; --amber:#a15a00; --amber-soft:#fff5e5; --red:#b42318; --red-soft:#fff0ee; --blue:#235c91; }
-    * { box-sizing:border-box; } body { margin:0; font:14px/1.5 Inter,"Microsoft YaHei",sans-serif; color:var(--ink); background:var(--paper); }
-    button,input,textarea,select { font:inherit; } button { cursor:pointer; } header { height:60px; display:flex; align-items:center; justify-content:space-between; padding:0 30px; background:#10211d; color:#fff; }
-    .brand { display:flex; align-items:center; gap:10px; font-size:16px; font-weight:760; } .brand-mark { display:grid; place-items:center; width:30px; height:30px; color:#10211d; background:#a9e2d4; border-radius:5px; } .brand small { color:#99aaa4; font-weight:500; }
-    .environment { display:flex; align-items:center; gap:8px; color:#b3c0bb; font-size:12px; } .dot { width:8px; height:8px; border-radius:50%; background:#5ed0ad; box-shadow:0 0 0 4px rgba(94,208,173,.12); }
-    main { width:min(1320px,calc(100% - 48px)); margin:0 auto; padding:30px 0 50px; } .top { display:flex; align-items:end; justify-content:space-between; gap:24px; margin-bottom:26px; } .eyebrow { display:flex; gap:8px; align-items:center; margin:0 0 7px; color:var(--teal); font-size:11px; font-weight:700; } h1 { max-width:100%; margin:0; font-size:27px; letter-spacing:0; overflow-wrap:anywhere; } .sub { margin:7px 0 0; color:var(--muted); }
-    .actions { display:flex; gap:10px; } button { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:38px; padding:0 12px; border:1px solid transparent; border-radius:5px; background:var(--teal); color:#fff; font-weight:650; } button:hover { background:#006456; } button.secondary { background:#fff; color:var(--teal); border-color:#a7c8bf; } button.secondary:hover { background:#f4fbf8; } button:disabled { opacity:.55; cursor:not-allowed; }
-    .metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:18px; } .metric { min-height:105px; padding:17px; background:var(--white); border:1px solid var(--line); border-radius:6px; } .metric label { display:flex; justify-content:space-between; align-items:center; color:var(--muted); font-size:12px; } .metric strong { display:block; margin-top:9px; font-size:27px; line-height:1; } .metric.review strong { color:var(--amber); } .metric.risk strong { color:var(--red); } .metric.done strong { color:var(--teal); }
-    .board { display:grid; grid-template-columns:minmax(420px,1.05fr) minmax(420px,.95fr); gap:18px; align-items:start; } .panel { overflow:hidden; background:var(--white); border:1px solid var(--line); border-radius:6px; } .panel-head { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:55px; padding:0 17px; border-bottom:1px solid var(--line); } h2 { margin:0; font-size:15px; } .hint { color:var(--muted); font-size:12px; } .queue { max-height:610px; overflow:auto; }
-    .ticket { display:grid; grid-template-columns:5px minmax(0,1fr) auto; gap:13px; align-items:start; padding:15px 17px; border-bottom:1px solid var(--line); cursor:pointer; } .ticket:hover,.ticket.active { background:#f7fbf9; } .ticket:last-child { border-bottom:0; } .stripe { width:5px; min-height:55px; border-radius:4px; background:#9dbbb3; } .stripe.high,.stripe.critical { background:var(--red); } .stripe.medium { background:var(--amber); } .ticket-title { font-weight:730; } .ticket-copy { overflow:hidden; margin-top:4px; color:var(--muted); font-size:12px; text-overflow:ellipsis; white-space:nowrap; } .meta { display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; } .tag { display:inline-flex; align-items:center; gap:4px; padding:2px 7px; border-radius:3px; color:#156452; background:var(--teal-soft); font-size:11px; } .tag.high,.tag.critical { color:var(--red); background:var(--red-soft); } .tag.medium { color:var(--amber); background:var(--amber-soft); } .time { margin-top:3px; color:#87938f; font-size:11px; white-space:nowrap; }
-    .detail { min-height:610px; } .empty { display:grid; min-height:400px; place-items:center; padding:30px; color:var(--muted); text-align:center; } .detail-body { padding:19px; } .detail-title { display:flex; justify-content:space-between; gap:10px; align-items:start; } .detail-title h3 { margin:0; font-size:19px; } .detail-copy { margin:11px 0 16px; color:#4d5d58; line-height:1.75; } .signal { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; margin:16px 0; } .signal div { padding:10px; background:#f5f8f7; border-left:3px solid var(--teal); } .signal div:nth-child(2) { border-color:var(--amber); } .signal div:nth-child(3) { border-color:var(--blue); } .signal span { display:block; color:var(--muted); font-size:11px; } .signal strong { display:block; margin-top:2px; font-size:13px; overflow-wrap:anywhere; }
-    .block { margin-top:15px; padding:13px; border:1px solid var(--line); border-radius:5px; } .block-label { display:flex; align-items:center; gap:7px; margin-bottom:7px; color:var(--muted); font-size:11px; font-weight:700; } .block p { margin:0; line-height:1.65; } .sop { color:#0d6c5c; font-weight:700; } .detail-actions { display:flex; gap:9px; margin-top:17px; } .timeline { margin-top:16px; padding-top:15px; border-top:1px solid var(--line); } .event { display:grid; grid-template-columns:12px 1fr; gap:8px; margin-top:9px; font-size:12px; } .event-dot { width:7px; height:7px; margin-top:5px; border-radius:50%; background:var(--teal); } .event-name { font-weight:650; } .event-meta { margin-top:2px; color:var(--muted); font-size:11px; }
-    .composer { grid-column:1/-1; } .form { display:grid; grid-template-columns:1fr 1fr 1.5fr auto; gap:10px; padding:15px 17px; } input,textarea,select { width:100%; border:1px solid #b8c8c2; border-radius:4px; padding:9px; color:var(--ink); background:#fff; } textarea { min-height:39px; resize:vertical; }
-    .toast { position:fixed; right:22px; bottom:22px; z-index:10; max-width:340px; padding:11px 14px; border-radius:5px; color:#fff; background:#1d312b; opacity:0; transform:translateY(10px); transition:.18s; pointer-events:none; } .toast.show { opacity:1; transform:none; } .toast.error { background:#8b1e15; }
-    @media(max-width:860px) { header { padding:0 18px; } .brand small,.environment { display:none; } main { width:min(100% - 28px,1320px); padding-top:20px; } .top { align-items:start; flex-direction:column; } .top > div:first-child { width:100%; min-width:0; } h1 { width:100%; font-size:24px; line-height:1.3; word-break:break-all; } .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } .board { grid-template-columns:minmax(0,1fr); } .detail { min-height:0; } .form { grid-template-columns:1fr; } .form button { min-height:42px; } .signal { grid-template-columns:1fr; } }
-  </style>
-</head>
-<body>
-  <header>
-    <div class="brand"><span class="brand-mark"><i data-lucide="scan-search" size="17"></i></span>ServiceOps AI <small>/ 客服质检与投诉协同</small></div>
-    <div class="environment"><span class="dot"></span>合成案例演示环境</div>
-  </header>
-  <main>
-    <div class="top">
-      <div><p class="eyebrow"><i data-lucide="shield-check" size="14"></i> AI-ASSISTED SERVICE OPERATIONS</p><h1>风险分流、SOP 协同与人工处置闭环</h1><p class="sub">面向客服主管的工作台：先识别高风险，再由人决定是否进入跨系统投递。</p></div>
-      <div class="actions"><button class="secondary" id="reload"><i data-lucide="refresh-cw" size="15"></i>刷新看板</button><button id="seed"><i data-lucide="database-zap" size="15"></i>加载 10 条演示案例</button></div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TradeOps ERP | 交易履约运营中台</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+      :root {
+        --ink: #1d2528;
+        --muted: #687378;
+        --line: #dfe4e5;
+        --paper: #f5f6f6;
+        --white: #fff;
+        --nav: #172022;
+        --nav-muted: #9dacad;
+        --green: #17755d;
+        --green-soft: #eaf5f0;
+        --blue: #2b65a0;
+        --blue-soft: #edf4fb;
+        --amber: #9b6207;
+        --amber-soft: #fff5df;
+        --red: #b23b32;
+        --red-soft: #fff0ee;
+        --violet: #6d5594;
+        --violet-soft: #f4f0f9;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        font:
+          14px/1.5 Inter,
+          "Microsoft YaHei",
+          sans-serif;
+        color: var(--ink);
+        background: var(--paper);
+      }
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      .app {
+        display: grid;
+        grid-template-columns: 226px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+      .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 18px 12px;
+        background: var(--nav);
+        color: #fff;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 42px;
+        padding: 0 9px;
+        margin-bottom: 17px;
+      }
+      .brand-mark {
+        display: grid;
+        place-items: center;
+        width: 31px;
+        height: 31px;
+        border-radius: 6px;
+        background: #71c8a8;
+        color: #11211c;
+      }
+      .brand strong {
+        display: block;
+        font-size: 15px;
+      }
+      .brand span {
+        display: block;
+        color: var(--nav-muted);
+        font-size: 10px;
+      }
+      .nav-group {
+        margin: 16px 9px 6px;
+        color: #718283;
+        font-size: 10px;
+        font-weight: 700;
+      }
+      .nav {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        height: 40px;
+        margin: 2px 0;
+        padding: 0 11px;
+        border: 0;
+        border-radius: 5px;
+        background: transparent;
+        color: #bcc8c8;
+        text-align: left;
+        font-weight: 600;
+      }
+      .nav:hover {
+        background: #223032;
+        color: #fff;
+      }
+      .nav.active {
+        background: #294238;
+        color: #fff;
+      }
+      .nav svg {
+        flex: 0 0 auto;
+      }
+      .sidebar-foot {
+        position: absolute;
+        right: 12px;
+        bottom: 16px;
+        left: 12px;
+        padding: 11px;
+        border-top: 1px solid #2c393b;
+        color: #8e9d9f;
+        font-size: 11px;
+      }
+      .main {
+        min-width: 0;
+      }
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 60px;
+        padding: 0 24px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.95);
+      }
+      .crumb {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-weight: 750;
+      }
+      .top-actions {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .env {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding-right: 10px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #48a984;
+      }
+      .icon-btn,
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        min-height: 36px;
+        border: 1px solid transparent;
+        border-radius: 5px;
+        font-weight: 680;
+      }
+      .icon-btn {
+        width: 36px;
+        padding: 0;
+        background: #fff;
+        color: var(--muted);
+        border-color: var(--line);
+      }
+      .btn {
+        padding: 0 12px;
+        background: var(--green);
+        color: #fff;
+      }
+      .btn:hover {
+        background: #125e4b;
+      }
+      .btn.secondary {
+        color: var(--ink);
+        background: #fff;
+        border-color: #cbd3d5;
+      }
+      .btn.danger {
+        background: var(--red);
+      }
+      .content {
+        width: min(1480px, 100%);
+        padding: 24px;
+      }
+      .page-head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 20px;
+        margin-bottom: 19px;
+      }
+      .page-head h1 {
+        margin: 0;
+        font-size: 22px;
+        letter-spacing: 0;
+      }
+      .page-head p {
+        margin: 5px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: #fff;
+        margin-bottom: 17px;
+        overflow: hidden;
+      }
+      .metric {
+        min-height: 103px;
+        padding: 16px;
+        border-right: 1px solid var(--line);
+      }
+      .metric:last-child {
+        border: 0;
+      }
+      .metric-label {
+        display: flex;
+        justify-content: space-between;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .metric strong {
+        display: block;
+        margin-top: 11px;
+        font-size: 25px;
+        line-height: 1;
+      }
+      .metric small {
+        display: block;
+        margin-top: 8px;
+        color: #849094;
+        font-size: 10px;
+      }
+      .grid-2 {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
+        gap: 16px;
+        align-items: start;
+      }
+      .panel {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: #fff;
+      }
+      .panel + .panel-stack,
+      .panel-stack + .panel {
+        margin-top: 16px;
+      }
+      .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 50px;
+        padding: 0 15px;
+        border-bottom: 1px solid var(--line);
+      }
+      .panel-head h2 {
+        margin: 0;
+        font-size: 14px;
+      }
+      .hint {
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .table-wrap {
+        width: 100%;
+        overflow: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        white-space: nowrap;
+      }
+      th {
+        height: 38px;
+        padding: 0 13px;
+        color: #758084;
+        background: #fafbfb;
+        font-size: 10px;
+        text-align: left;
+        font-weight: 700;
+      }
+      td {
+        height: 51px;
+        padding: 7px 13px;
+        border-top: 1px solid #edf0f0;
+        font-size: 12px;
+        vertical-align: middle;
+      }
+      tr:hover td {
+        background: #fafcfc;
+      }
+      .primary {
+        font-weight: 700;
+      }
+      .secondary-text {
+        display: block;
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 10px;
+        max-width: 330px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        min-height: 21px;
+        padding: 1px 7px;
+        border-radius: 3px;
+        background: #eef2f2;
+        color: #526064;
+        font-size: 10px;
+      }
+      .badge.green,
+      .badge.active,
+      .badge.completed,
+      .badge.released,
+      .badge.healthy,
+      .badge.approved,
+      .badge.resolved {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+      .badge.amber,
+      .badge.pending,
+      .badge.pending_risk,
+      .badge.pending_review,
+      .badge.validating,
+      .badge.reserved,
+      .badge.degraded {
+        background: var(--amber-soft);
+        color: var(--amber);
+      }
+      .badge.blue,
+      .badge.pending_fulfillment,
+      .badge.processing,
+      .badge.developing,
+      .badge.qualified {
+        background: var(--blue-soft);
+        color: var(--blue);
+      }
+      .badge.red,
+      .badge.exception,
+      .badge.high,
+      .badge.rejected,
+      .badge.refunded,
+      .badge.maintenance {
+        background: var(--red-soft);
+        color: var(--red);
+      }
+      .badge.violet,
+      .badge.negotiating,
+      .badge.rented,
+      .badge.scheduled {
+        background: var(--violet-soft);
+        color: var(--violet);
+      }
+      .score {
+        font-weight: 800;
+      }
+      .score.high {
+        color: var(--red);
+      }
+      .text-btn {
+        padding: 4px 0;
+        border: 0;
+        background: none;
+        color: var(--blue);
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .text-btn + .text-btn {
+        margin-left: 10px;
+      }
+      .empty {
+        display: grid;
+        min-height: 180px;
+        place-items: center;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .alert-list {
+        padding: 5px 15px;
+      }
+      .alert {
+        display: grid;
+        grid-template-columns: 8px minmax(0, 1fr);
+        gap: 10px;
+        padding: 12px 0;
+        border-bottom: 1px solid #edf0f0;
+      }
+      .alert:last-child {
+        border: 0;
+      }
+      .alert-dot {
+        width: 7px;
+        height: 7px;
+        margin-top: 6px;
+        border-radius: 50%;
+        background: var(--amber);
+      }
+      .alert strong {
+        display: block;
+        font-size: 12px;
+      }
+      .alert p {
+        margin: 3px 0 0;
+        color: var(--muted);
+        font-size: 10px;
+      }
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        padding: 17px;
+      }
+      .flow-step {
+        position: relative;
+        padding: 12px 12px 12px 15px;
+        border-left: 3px solid var(--green);
+        background: #f7faf9;
+      }
+      .flow-step:nth-child(2) {
+        border-color: var(--blue);
+      }
+      .flow-step:nth-child(3) {
+        border-color: var(--amber);
+      }
+      .flow-step:nth-child(4) {
+        border-color: var(--red);
+      }
+      .flow-step span {
+        display: block;
+        color: var(--muted);
+        font-size: 10px;
+      }
+      .flow-step strong {
+        display: block;
+        margin-top: 4px;
+        font-size: 19px;
+      }
+      .filter-row {
+        display: flex;
+        gap: 8px;
+      }
+      .filter-row input,
+      .filter-row select {
+        width: auto;
+        min-width: 140px;
+      }
+      .section-stack {
+        display: grid;
+        gap: 16px;
+      }
+      .usage-list {
+        padding: 13px 15px;
+      }
+      .usage {
+        display: grid;
+        grid-template-columns: 90px minmax(100px, 1fr) 68px;
+        gap: 10px;
+        align-items: center;
+        margin: 12px 0;
+      }
+      .usage label {
+        font-size: 11px;
+      }
+      .track {
+        height: 7px;
+        overflow: hidden;
+        border-radius: 3px;
+        background: #edf0f0;
+      }
+      .fill {
+        height: 100%;
+        border-radius: 3px;
+        background: var(--green);
+      }
+      .usage:nth-child(2) .fill {
+        background: var(--blue);
+      }
+      .usage:nth-child(3) .fill {
+        background: var(--amber);
+      }
+      .usage small {
+        text-align: right;
+        color: var(--muted);
+        font-size: 10px;
+      }
+      .recommendations {
+        padding: 5px 15px;
+      }
+      .recommendation {
+        display: grid;
+        grid-template-columns: 22px minmax(0, 1fr);
+        gap: 10px;
+        padding: 13px 0;
+        border-bottom: 1px solid #edf0f0;
+      }
+      .recommendation:last-child {
+        border: 0;
+      }
+      .rec-index {
+        display: grid;
+        place-items: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 4px;
+        background: var(--red-soft);
+        color: var(--red);
+        font-size: 10px;
+        font-weight: 800;
+      }
+      .recommendation strong {
+        display: block;
+        font-size: 12px;
+      }
+      .recommendation p {
+        margin: 3px 0;
+        color: var(--muted);
+        font-size: 10px;
+      }
+      .criteria {
+        max-width: 420px;
+        white-space: normal;
+        line-height: 1.45;
+      }
+      .req-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .req {
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: #fff;
+      }
+      .req-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .req h3 {
+        margin: 10px 0 6px;
+        font-size: 13px;
+      }
+      .req p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .req dl {
+        display: grid;
+        grid-template-columns: 58px 1fr;
+        gap: 5px;
+        margin: 11px 0 0;
+        padding-top: 10px;
+        border-top: 1px solid #edf0f0;
+        font-size: 10px;
+      }
+      .req dt {
+        color: var(--muted);
+      }
+      .req dd {
+        margin: 0;
+      }
+      .dialog {
+        width: min(600px, calc(100% - 28px));
+        padding: 0;
+        border: 0;
+        border-radius: 7px;
+        box-shadow: 0 24px 70px rgba(20, 30, 31, 0.24);
+      }
+      .dialog::backdrop {
+        background: rgba(16, 24, 25, 0.48);
+      }
+      .dialog-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 54px;
+        padding: 0 18px;
+        border-bottom: 1px solid var(--line);
+      }
+      .dialog-head h2 {
+        margin: 0;
+        font-size: 15px;
+      }
+      .dialog-body {
+        display: grid;
+        gap: 13px;
+        padding: 18px;
+      }
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .field {
+        display: grid;
+        gap: 5px;
+      }
+      .field.full {
+        grid-column: 1/-1;
+      }
+      .field label {
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 700;
+      }
+      .field input,
+      .field select,
+      .field textarea,
+      .filter-row input,
+      .filter-row select {
+        min-height: 37px;
+        padding: 7px 9px;
+        border: 1px solid #cbd3d5;
+        border-radius: 4px;
+        background: #fff;
+        color: var(--ink);
+      }
+      .field textarea {
+        min-height: 78px;
+        resize: vertical;
+      }
+      .dialog-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 0 18px 18px;
+      }
+      .toast {
+        position: fixed;
+        right: 22px;
+        bottom: 22px;
+        z-index: 20;
+        max-width: 350px;
+        padding: 11px 14px;
+        border-radius: 5px;
+        background: #20302c;
+        color: #fff;
+        opacity: 0;
+        transform: translateY(8px);
+        transition: 0.16s;
+        pointer-events: none;
+      }
+      .toast.show {
+        opacity: 1;
+        transform: none;
+      }
+      .toast.error {
+        background: #8f2922;
+      }
+      @media (max-width: 1100px) {
+        .metrics {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        .metric:nth-child(3) {
+          border-right: 0;
+        }
+        .metric:nth-child(n + 4) {
+          border-top: 1px solid var(--line);
+        }
+        .grid-2 {
+          grid-template-columns: 1fr;
+        }
+        .req-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 760px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+        .sidebar {
+          position: sticky;
+          z-index: 10;
+          width: 100%;
+          height: auto;
+          padding: 8px 10px;
+          overflow-x: hidden;
+        }
+        .brand {
+          height: 36px;
+          margin: 0 0 4px;
+        }
+        .brand span,
+        .nav-group,
+        .sidebar-foot {
+          display: none;
+        }
+        .sidebar nav {
+          display: flex;
+          width: 100%;
+          min-width: 0;
+          overflow-x: auto;
+        }
+        .nav {
+          flex: 0 0 auto;
+          width: auto;
+          height: 36px;
+          padding: 0 10px;
+        }
+        .topbar {
+          top: 88px;
+          height: 52px;
+          padding: 0 13px;
+        }
+        .env {
+          display: none;
+        }
+        .content {
+          padding: 16px 12px;
+        }
+        .page-head {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+        .metrics {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .metric {
+          border-top: 1px solid var(--line);
+          border-right: 1px solid var(--line) !important;
+        }
+        .metric:nth-child(odd) {
+          border-right: 1px solid var(--line) !important;
+        }
+        .metric:nth-child(even) {
+          border-right: 0 !important;
+        }
+        .metric:first-child,
+        .metric:nth-child(2) {
+          border-top: 0;
+        }
+        .flow {
+          grid-template-columns: repeat(2, 1fr);
+          gap: 8px;
+        }
+        .req-grid {
+          grid-template-columns: 1fr;
+        }
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+        .field.full {
+          grid-column: auto;
+        }
+        .filter-row {
+          width: 100%;
+          overflow: auto;
+        }
+        .page-head .btn {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark"><i data-lucide="blocks" size="17"></i></span>
+          <div><strong>TradeOps ERP</strong><span>交易履约运营中台</span></div>
+        </div>
+        <nav>
+          <div class="nav-group">运营中心</div>
+          <button class="nav active" data-view="dashboard">
+            <i data-lucide="layout-dashboard" size="16"></i>运营工作台
+          </button>
+          <button class="nav" data-view="requirements">
+            <i data-lucide="clipboard-list" size="16"></i>需求中心
+          </button>
+          <div class="nav-group">业务协同</div>
+          <button class="nav" data-view="customers">
+            <i data-lucide="users" size="16"></i>客户与线索
+          </button>
+          <button class="nav" data-view="inventory">
+            <i data-lucide="package-search" size="16"></i>账号库存
+          </button>
+          <button class="nav" data-view="orders">
+            <i data-lucide="receipt-text" size="16"></i>订单履约
+          </button>
+          <button class="nav" data-view="cases">
+            <i data-lucide="messages-square" size="16"></i>售后工单
+          </button>
+          <button class="nav" data-view="approvals">
+            <i data-lucide="shield-check" size="16"></i>风控审批
+          </button>
+          <div class="nav-group">系统运营</div>
+          <button class="nav" data-view="operations">
+            <i data-lucide="chart-no-axes-combined" size="16"></i>运营分析
+          </button>
+        </nav>
+        <div class="sidebar-foot">R1.0 · 合成数据演示环境</div>
+      </aside>
+      <div class="main">
+        <header class="topbar">
+          <div class="crumb">
+            <i data-lucide="panel-left" size="16"></i
+            ><span id="crumb">运营工作台</span>
+          </div>
+          <div class="top-actions">
+            <span class="env"
+              ><span class="dot"></span>服务正常 · 数据已脱敏</span
+            ><button class="icon-btn" id="refresh" title="刷新">
+              <i data-lucide="refresh-cw" size="15"></i>
+            </button>
+          </div>
+        </header>
+        <main class="content" id="content">
+          <div class="empty">正在初始化运营数据...</div>
+        </main>
+      </div>
     </div>
-    <section class="metrics" aria-label="运营指标">
-      <div class="metric"><label>合成案例 <i data-lucide="inbox" size="15"></i></label><strong id="total">0</strong></div>
-      <div class="metric review"><label>待人工审核 <i data-lucide="user-round-check" size="15"></i></label><strong id="review">0</strong></div>
-      <div class="metric risk"><label>高风险 / 紧急 <i data-lucide="triangle-alert" size="15"></i></label><strong id="risk">0</strong></div>
-      <div class="metric done"><label>已投递 CRM <i data-lucide="send" size="15"></i></label><strong id="delivered">0</strong></div>
-    </section>
-    <div class="board">
-      <section class="panel"><div class="panel-head"><h2>风险处理队列</h2><span class="hint" id="scope">仅展示合成数据</span></div><div class="queue" id="queue"><div class="empty">正在读取演示队列...</div></div></section>
-      <section class="panel detail"><div class="panel-head"><h2>处置决策台</h2><span class="hint">人工审核优先</span></div><div id="detail"><div class="empty">从左侧选择一个案例，查看风险依据、SOP 和审计轨迹。</div></div></section>
-      <section class="panel composer"><div class="panel-head"><h2>创建合成案例</h2><span class="hint">仅用于演示，不进入真实业务系统</span></div><form class="form" id="composer"><input id="subject" required placeholder="主题，例如：退款投诉"><textarea id="content" required placeholder="客户反馈，例如：商品破损，要求退款并准备投诉"></textarea><select id="channel"><option value="web">Web</option><option value="email">Email</option><option value="phone">Phone</option></select><button type="submit"><i data-lucide="sparkles" size="15"></i>分析并分流</button></form></section>
-    </div>
-  </main>
-  <div class="toast" id="toast"></div>
-  <script>
-    const $ = id => document.getElementById(id); const icon = () => lucide.createIcons(); const apiBase = location.pathname.startsWith('/caseflow') ? '/caseflow' : ''; let state = { tickets: [], selected: null };
-    function notice(text, error=false) { const t=$('toast'); t.textContent=text; t.className='toast show'+(error?' error':''); setTimeout(()=>t.className='toast',2800); }
-    function escapeHtml(value) { const node=document.createElement('div'); node.textContent=value || ''; return node.innerHTML; }
-    function label(value) { return ({pending_review:'待审核',approved:'待投递',rejected:'已拒绝',delivered:'已投递',delivery_failed:'投递失败',critical:'紧急',high:'高风险',medium:'中风险',low:'低风险'})[value] || value; }
-    function tag(value) { return `<span class="tag ${value}">${escapeHtml(label(value))}</span>`; }
-    function render() { const c=state.counts || {}; const p=state.priorities || {}; $('total').textContent=state.tickets.length; $('review').textContent=c.pending_review || 0; $('risk').textContent=(p.high || 0)+(p.critical || 0); $('delivered').textContent=c.delivered || 0; $('scope').textContent=state.scope === 'synthetic-demo-only' ? '仅展示合成数据' : '演示数据';
-      $('queue').innerHTML=state.tickets.length ? state.tickets.map(t=>`<article class="ticket ${state.selected===t.id?'active':''}" data-ticket="${t.id}"><span class="stripe ${t.priority}"></span><div><div class="ticket-title">${escapeHtml(t.subject)}</div><div class="ticket-copy">${escapeHtml(t.content_preview)}</div><div class="meta">${tag(t.priority)}${tag(t.status)}<span class="tag">${escapeHtml(t.category)}</span><span class="tag">${escapeHtml(t.sop_citation)}</span></div></div><span class="time">${new Date(t.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span></article>`).join('') : '<div class="empty">尚无案例，点击右上角加载演示数据。</div>';
-      document.querySelectorAll('[data-ticket]').forEach(node=>node.onclick=()=>selectTicket(node.dataset.ticket)); if (state.selected) renderDetail(); icon(); }
-    async function selectTicket(id) { state.selected=id; render(); await renderDetail(); }
-    async function renderDetail() { const ticket=state.tickets.find(item=>item.id===state.selected); if(!ticket) return; const detail=$('detail'); detail.innerHTML=`<div class="detail-body"><div class="detail-title"><div><h3>${escapeHtml(ticket.subject)}</h3><p class="sub">${tag(ticket.priority)} ${tag(ticket.status)} ${tag(ticket.category)}</p></div><span class="hint">置信度 ${Math.round(ticket.confidence*100)}%</span></div><p class="detail-copy">${escapeHtml(ticket.content_preview)}</p><div class="signal"><div><span>风险判断</span><strong>${escapeHtml(ticket.review_reason || '常规流程')}</strong></div><div><span>SOP 依据</span><strong>${escapeHtml(ticket.sop_citation)}</strong></div><div><span>渠道</span><strong>${escapeHtml(ticket.channel)}</strong></div></div><div class="block"><div class="block-label"><i data-lucide="book-open-check" size="14"></i> SOP 引用与处置边界</div><p><span class="sop">${escapeHtml(ticket.sop_citation)}</span> 已关联到该案例；涉及退款、赔偿、投诉、舆情或欺诈时，系统不自动对外承诺，转入人工审核。</p></div><div class="block"><div class="block-label"><i data-lucide="message-square-text" size="14"></i> AI 草拟回复</div><p>${escapeHtml(ticket.draft_reply)}</p></div>${ticket.status==='pending_review'?`<div class="detail-actions"><button id="approve"><i data-lucide="check-check" size="15"></i>批准并进入投递队列</button></div>`:''}<div class="timeline" id="timeline"><div class="hint">正在读取审计记录...</div></div></div>`; icon(); if(ticket.status==='pending_review') $('approve').onclick=()=>approve(ticket.id); try { const res=await fetch(`${apiBase}/tickets/${ticket.id}/audit`); const events=await res.json(); $('timeline').innerHTML='<div class="block-label"><i data-lucide="history" size="14"></i> 可回放审计轨迹</div>'+events.map(e=>`<div class="event"><span class="event-dot"></span><div><div class="event-name">${escapeHtml(e.event_type)}</div><div class="event-meta">${escapeHtml(e.actor)} · ${new Date(e.created_at).toLocaleString()}</div></div></div>`).join(''); icon(); } catch { $('timeline').innerHTML='<div class="hint">审计记录暂不可用</div>'; } }
-    async function refresh(selectFirst=false) { try { const res=await fetch(`${apiBase}/dashboard/summary`); if(!res.ok) throw new Error(); state=await res.json(); if(selectFirst || !state.tickets.some(ticket=>ticket.id===state.selected)) state.selected=state.tickets[0]?.id || null; render(); if(state.selected) await renderDetail(); } catch { notice('读取演示看板失败',true); } }
-    async function seed() { const button=$('seed'); button.disabled=true; try { const res=await fetch(`${apiBase}/demo/seed`,{method:'POST'}); if(!res.ok) throw new Error(); await refresh(true); notice('已加载可复现的 10 条合成案例'); } catch { notice('演示案例加载失败',true); } finally { button.disabled=false; } }
-    async function approve(id) { try { const res=await fetch(`${apiBase}/demo/tickets/${id}/approve`,{method:'POST'}); if(!res.ok) throw new Error(); notice('审核完成，独立 worker 将异步投递'); setTimeout(()=>refresh(),1200); } catch { notice('审批暂不可用',true); } }
-    $('reload').onclick=()=>refresh(); $('seed').onclick=seed; $('composer').onsubmit=async event=>{ event.preventDefault(); const button=event.submitter; button.disabled=true; try { const res=await fetch(`${apiBase}/tickets`,{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':crypto.randomUUID()},body:JSON.stringify({customer_id:'synthetic-manual-'+crypto.randomUUID().slice(0,8),subject:$('subject').value,content:$('content').value,channel:$('channel').value})}); if(!res.ok) throw new Error(); await refresh(); notice('已完成风险分析并加入演示队列'); event.target.reset(); } catch { notice('案例创建失败',true); } finally { button.disabled=false; } };
-    icon(); seed();
-  </script>
-</body>
+    <dialog class="dialog" id="modal"><div id="modal-content"></div></dialog>
+    <div class="toast" id="toast"></div>
+    <script>
+      const apiBase = location.pathname.startsWith("/tradeops")
+        ? "/tradeops"
+        : location.pathname.startsWith("/caseflow")
+          ? "/caseflow"
+          : "";
+      const state = { view: "dashboard", cache: {} };
+      const labels = {
+        dashboard: "运营工作台",
+        requirements: "需求中心",
+        customers: "客户与线索",
+        inventory: "账号库存",
+        orders: "订单履约",
+        cases: "售后工单",
+        approvals: "风控审批",
+        operations: "运营分析",
+      };
+      const statusLabel = {
+        active: "履约中",
+        pending_fulfillment: "待履约",
+        pending_risk: "待风控",
+        completed: "已完成",
+        exception: "异常",
+        cancelled: "已取消",
+        refunded: "已退款",
+        available: "可用",
+        reserved: "已锁定",
+        rented: "租用中",
+        maintenance: "维护中",
+        pending_review: "待审核",
+        processing: "处理中",
+        resolved: "已解决",
+        pending: "待处理",
+        approved: "已批准",
+        rejected: "已拒绝",
+        released: "已上线",
+        validating: "验证中",
+        developing: "开发中",
+        planned: "已规划",
+        healthy: "正常",
+        degraded: "降级",
+        qualified: "已确认",
+        negotiating: "洽谈中",
+        new: "新线索",
+        converted: "已转客户",
+        completed_training: "已完成",
+        scheduled: "待进行",
+      };
+      const $ = (id) => document.getElementById(id);
+      const esc = (v) => {
+        const n = document.createElement("div");
+        n.textContent = v ?? "";
+        return n.innerHTML;
+      };
+      const money = (v) =>
+        "¥" +
+        Number(v || 0).toLocaleString("zh-CN", { maximumFractionDigits: 2 });
+      const badge = (v) =>
+        `<span class="badge ${esc(v)}">${esc(statusLabel[v] || v)}</span>`;
+      const icons = () => lucide.createIcons();
+      function notice(text, error = false) {
+        const t = $("toast");
+        t.textContent = text;
+        t.className = "toast show" + (error ? " error" : "");
+        setTimeout(() => (t.className = "toast"), 2600);
+      }
+      async function api(path, options = {}) {
+        const res = await fetch(apiBase + path, options);
+        if (!res.ok) {
+          let message = "请求失败";
+          try {
+            message = (await res.json()).detail || message;
+          } catch {}
+          throw new Error(message);
+        }
+        return res.json();
+      }
+      function pageHead(title, sub, action = "") {
+        return `<div class="page-head"><div><h1>${title}</h1><p>${sub}</p></div>${action}</div>`;
+      }
+      function table(headers, rows) {
+        return `<div class="table-wrap"><table><thead><tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
+      }
+      async function seed() {
+        await api("/erp/demo/seed", { method: "POST" });
+        state.cache = {};
+      }
+      async function dashboard() {
+        const d = await api("/erp/dashboard");
+        const m = d.metrics;
+        return (
+          pageHead("运营工作台", "2026-07-28 · 交易履约全链路概览") +
+          `<section class="metrics"><div class="metric"><span class="metric-label">演示订单<i data-lucide="receipt" size="14"></i></span><strong>${m.demo_orders}</strong><small>固定合成业务样本</small></div><div class="metric"><span class="metric-label">履约中<i data-lucide="activity" size="14"></i></span><strong>${m.active_orders}</strong><small>库存已完成交付</small></div><div class="metric"><span class="metric-label">待处理审批<i data-lucide="shield-alert" size="14"></i></span><strong>${m.pending_approvals}</strong><small>资金与风险需人工确认</small></div><div class="metric"><span class="metric-label">开放售后<i data-lucide="headset" size="14"></i></span><strong>${m.open_cases}</strong><small>包含处理中与待审核</small></div><div class="metric"><span class="metric-label">模拟交易额<i data-lucide="badge-chinese-yuan" size="14"></i></span><strong>${money(m.synthetic_gmv)}</strong><small>不代表真实公司经营数据</small></div></section><div class="grid-2"><section class="panel"><div class="panel-head"><h2>最近订单</h2><span class="hint">库存、客户与风控上下文已聚合</span></div>${table(
+            ["订单", "客户", "商品账号", "金额", "风险", "状态"],
+            d.recent_orders.map(
+              (o) =>
+                `<tr><td><span class="primary">${esc(o.order_no)}</span><span class="secondary-text">${esc(o.ai_summary)}</span></td><td>${esc(o.customer_name)}</td><td>${esc(o.sku)}<span class="secondary-text">${esc(o.inventory_title)}</span></td><td>${money(o.amount)}</td><td><span class="score ${o.risk_score >= 60 ? "high" : ""}">${o.risk_score}</span></td><td>${badge(o.status)}</td></tr>`,
+            ),
+          )}</section><section class="panel"><div class="panel-head"><h2>待办与风险</h2><span class="hint">${d.alerts.length} 项</span></div><div class="alert-list">${d.alerts.map((a) => `<div class="alert"><span class="alert-dot"></span><div><strong>${esc(a.reason)}</strong><p>${esc(a.approval_no)} · ${esc(a.assignee)} · ${a.entity_type === "order" ? "订单风控" : "售后审批"}</p></div></div>`).join("")}</div></section></div>`
+        );
+      }
+      async function requirements() {
+        const d = await api("/erp/requirements");
+        return (
+          pageHead("需求中心", "统一记录业务痛点、优先级、版本与验收口径") +
+          `<div class="req-grid">${d.items.map((r) => `<article class="req"><div class="req-top"><span class="primary">${esc(r.requirement_no)}</span><div>${badge(r.priority)} ${badge(r.status)}</div></div><h3>${esc(r.title)}</h3><p>${esc(r.pain_point)}</p><dl><dt>需求部门</dt><dd>${esc(r.department)}</dd><dt>目标版本</dt><dd>${esc(r.target_release)}</dd><dt>验收标准</dt><dd>${esc(r.acceptance_criteria)}</dd><dt>方案判断</dt><dd>${esc(r.ai_summary)}</dd></dl></article>`).join("")}</div>`
+        );
+      }
+      async function customers() {
+        const [c, l] = await Promise.all([
+          api("/erp/customers"),
+          api("/erp/leads"),
+        ]);
+        return (
+          pageHead("客户与线索", "AI 导购结果进入人工可跟进的业务队列") +
+          `<div class="section-stack"><section class="panel"><div class="panel-head"><h2>售前线索</h2><span class="hint">${l.total} 条</span></div>${table(
+            ["线索", "意图与预算", "AI 摘要", "负责人", "状态", "操作"],
+            l.items.map(
+              (x) =>
+                `<tr><td><span class="primary">${esc(x.name)}</span><span class="secondary-text">${esc(x.lead_code)} · ${esc(x.channel)}</span></td><td>${esc(x.intent)}<span class="secondary-text">预算 ${money(x.budget)}</span></td><td class="criteria">${esc(x.ai_summary)}</td><td>${esc(x.owner)}</td><td>${badge(x.status)}</td><td>${x.status !== "converted" ? `<button class="text-btn" onclick="convertLead('${x.id}')">转为客户</button>` : "-"}</td></tr>`,
+            ),
+          )}</section><section class="panel"><div class="panel-head"><h2>客户档案</h2><span class="hint">跨订单汇总</span></div>${table(
+            ["客户", "等级", "来源", "负责人", "风险", "订单数", "累计金额"],
+            c.items.map(
+              (x) =>
+                `<tr><td><span class="primary">${esc(x.name)}</span><span class="secondary-text">${esc(x.customer_code)} · ${esc(x.phone_masked)}</span></td><td>${badge(x.level)}</td><td>${esc(x.source)}</td><td>${esc(x.owner)}</td><td>${badge(x.risk_level)}</td><td>${x.order_count}</td><td>${money(x.order_value)}</td></tr>`,
+            ),
+          )}</section></div>`
+        );
+      }
+      async function inventory() {
+        const d = await api("/erp/inventory");
+        return (
+          pageHead("账号库存", "唯一库存状态与履约占用关系") +
+          `<section class="panel"><div class="panel-head"><h2>库存台账</h2><span class="hint">可用 ${d.items.filter((x) => x.status === "available").length} / ${d.total}</span></div>${table(
+            [
+              "SKU",
+              "账号描述",
+              "游戏",
+              "标签",
+              "日价",
+              "押金",
+              "风险标记",
+              "状态",
+            ],
+            d.items.map(
+              (x) =>
+                `<tr><td class="primary">${esc(x.sku)}</td><td>${esc(x.title)}</td><td>${esc(x.game)}</td><td>${x.tags.map(badge).join(" ")}</td><td>${money(x.daily_price)}</td><td>${money(x.deposit)}</td><td>${x.risk_flag === "normal" ? badge("正常") : badge(x.risk_flag)}</td><td>${badge(x.status)}</td></tr>`,
+            ),
+          )}</section>`
+        );
+      }
+      async function orders() {
+        const d = await api("/erp/orders");
+        return (
+          pageHead(
+            "订单履约",
+            "支付、风控、库存锁定与交付状态机",
+            `<button class="btn" onclick="openOrder()"><i data-lucide="plus" size="15"></i>新建订单</button>`,
+          ) +
+          `<section class="panel"><div class="panel-head"><h2>订单台账</h2><span class="hint">${d.total} 条</span></div>${table(
+            [
+              "订单",
+              "客户",
+              "账号库存",
+              "租期",
+              "金额 / 押金",
+              "风险判断",
+              "状态",
+              "操作",
+            ],
+            d.items.map(
+              (o) =>
+                `<tr><td><span class="primary">${esc(o.order_no)}</span><span class="secondary-text">${esc(o.channel)}</span></td><td>${esc(o.customer_name)} ${badge(o.customer_level)}</td><td>${esc(o.sku)}<span class="secondary-text">${esc(o.inventory_title)}</span></td><td>${o.rental_days} 天</td><td>${money(o.amount)}<span class="secondary-text">押金 ${money(o.deposit)}</span></td><td><span class="score ${o.risk_score >= 60 ? "high" : ""}">${o.risk_score}</span><span class="secondary-text">${esc(o.risk_reason || "常规校验")}</span></td><td>${badge(o.status)}</td><td>${o.status === "pending_fulfillment" ? `<button class="text-btn" onclick="fulfill('${o.id}')">确认交付</button>` : "-"}</td></tr>`,
+            ),
+          )}</section>`
+        );
+      }
+      async function cases() {
+        const d = await api("/erp/cases");
+        return (
+          pageHead(
+            "售后工单",
+            "原订单、SOP、资金审批与回复草拟统一协同",
+            `<button class="btn" onclick="openCase()"><i data-lucide="plus" size="15"></i>创建工单</button>`,
+          ) +
+          `<section class="panel"><div class="panel-head"><h2>售后队列</h2><span class="hint">${d.total} 条</span></div>${table(
+            [
+              "工单",
+              "关联订单 / 客户",
+              "问题分类",
+              "AI 处置摘要",
+              "SOP",
+              "退款申请",
+              "状态",
+            ],
+            d.items.map(
+              (x) =>
+                `<tr><td><span class="primary">${esc(x.case_no)}</span><span class="secondary-text">${esc(x.subject)} · ${esc(x.channel)}</span></td><td>${esc(x.order_no)}<span class="secondary-text">${esc(x.customer_name)}</span></td><td>${badge(x.category)} ${badge(x.priority)}</td><td class="criteria">${esc(x.ai_summary)}</td><td>${esc(x.sop_id)}</td><td>${money(x.requested_refund)}</td><td>${badge(x.status)}</td></tr>`,
+            ),
+          )}</section>`
+        );
+      }
+      async function approvals() {
+        const d = await api("/erp/approvals");
+        return (
+          pageHead("风控审批", "高风险订单与资金动作由人作最终决策") +
+          `<section class="panel"><div class="panel-head"><h2>审批任务</h2><span class="hint">待处理 ${d.items.filter((x) => x.status === "pending").length}</span></div>${table(
+            ["审批单", "对象", "类型", "触发原因", "处理人", "状态", "操作"],
+            d.items.map(
+              (a) =>
+                `<tr><td class="primary">${esc(a.approval_no)}</td><td>${a.entity_type === "order" ? "订单" : "售后"}<span class="secondary-text">${esc(a.entity_id)}</span></td><td>${esc(a.approval_type)}</td><td>${esc(a.reason)}</td><td>${esc(a.assignee)}</td><td>${badge(a.status)}</td><td>${a.status === "pending" ? `<button class="text-btn" onclick="decide('${a.id}','approve')">批准</button><button class="text-btn" onclick="decide('${a.id}','reject')">驳回</button>` : "-"}</td></tr>`,
+            ),
+          )}</section>`
+        );
+      }
+      async function operations() {
+        const [o, i, s] = await Promise.all([
+          api("/erp/operations"),
+          api("/erp/integrations"),
+          api("/erp/sops"),
+        ]);
+        const max = Math.max(...o.module_usage.map((x) => x.action_count), 1);
+        return (
+          pageHead(
+            "运营分析",
+            "系统使用、集成健康与流程瓶颈复盘 · 合成运营样本",
+          ) +
+          `<section class="panel panel-stack"><div class="panel-head"><h2>业务流转漏斗</h2><span class="hint">从线索到异常处置</span></div><div class="flow"><div class="flow-step"><span>有效线索</span><strong>${o.flow.qualified_leads}</strong></div><div class="flow-step"><span>客户档案</span><strong>${o.flow.customers}</strong></div><div class="flow-step"><span>交易订单</span><strong>${o.flow.orders}</strong></div><div class="flow-step"><span>异常节点</span><strong>${o.flow.exceptions}</strong></div></div></section><div class="grid-2 panel-stack"><div class="section-stack"><section class="panel"><div class="panel-head"><h2>模块使用与处理时长</h2><span class="hint">模拟三日汇总</span></div><div class="usage-list">${o.module_usage.map((x) => `<div class="usage"><label>${esc(x.module)}</label><div class="track"><div class="fill" style="width:${Math.round((x.action_count / max) * 100)}%"></div></div><small>${x.action_count} 次 · ${x.avg_minutes} 分</small></div>`).join("")}</div></section><section class="panel"><div class="panel-head"><h2>跨系统集成监控</h2><span class="hint">API / Webhook</span></div>${table(
+            ["系统", "方式", "成功率", "积压", "状态"],
+            i.items.map(
+              (x) =>
+                `<tr><td><span class="primary">${esc(x.name)}</span><span class="secondary-text">${esc(x.owner)}</span></td><td>${esc(x.integration_mode)}</td><td>${x.success_rate}%</td><td>${x.pending_jobs}</td><td>${badge(x.status)}</td></tr>`,
+            ),
+          )}</section></div><section class="panel"><div class="panel-head"><h2>流程瓶颈与改进建议</h2><span class="hint">基于规则与统计生成</span></div><div class="recommendations">${o.recommendations.map((r, n) => `<div class="recommendation"><span class="rec-index">${n + 1}</span><div><strong>${esc(r.signal)}</strong><p>${esc(r.evidence)}</p><span class="secondary-text">${esc(r.action)}</span></div></div>`).join("")}</div></section></div><section class="panel panel-stack"><div class="panel-head"><h2>SOP 与运营赋能</h2><span class="hint">${s.total} 份有效流程</span></div>${table(
+            ["SOP", "业务域", "触发条件", "处置规则", "版本"],
+            s.items.map(
+              (x) =>
+                `<tr><td class="primary">${esc(x.id)}<span class="secondary-text">${esc(x.title)}</span></td><td>${esc(x.domain)}</td><td>${esc(x.trigger_rule)}</td><td class="criteria">${esc(x.rule_text)}</td><td>${esc(x.version)}</td></tr>`,
+            ),
+          )}</section>`
+        );
+      }
+      const renderers = {
+        dashboard,
+        requirements,
+        customers,
+        inventory,
+        orders,
+        cases,
+        approvals,
+        operations,
+      };
+      async function render() {
+        const target = $("content");
+        target.innerHTML = '<div class="empty">正在读取数据...</div>';
+        try {
+          target.innerHTML = await renderers[state.view]();
+          icons();
+        } catch (e) {
+          target.innerHTML = `<div class="empty">${esc(e.message)}</div>`;
+          notice(e.message, true);
+        }
+      }
+      async function switchView(view) {
+        state.view = view;
+        document
+          .querySelectorAll(".nav")
+          .forEach((n) =>
+            n.classList.toggle("active", n.dataset.view === view),
+          );
+        $("crumb").textContent = labels[view];
+        await render();
+      }
+      async function convertLead(id) {
+        try {
+          await api(`/erp/leads/${id}/convert`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ operator: "公开演示操作员" }),
+          });
+          notice("线索已转为客户");
+          render();
+        } catch (e) {
+          notice(e.message, true);
+        }
+      }
+      async function fulfill(id) {
+        try {
+          await api(`/erp/orders/${id}/fulfill`, { method: "POST" });
+          notice("已完成履约交付并更新库存");
+          render();
+        } catch (e) {
+          notice(e.message, true);
+        }
+      }
+      async function decide(id, decision) {
+        try {
+          await api(`/erp/approvals/${id}/decide`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              decision,
+              reviewer: "公开演示审核员",
+              note: "合成案例演示决策",
+            }),
+          });
+          notice(decision === "approve" ? "审批已批准" : "审批已驳回");
+          render();
+        } catch (e) {
+          notice(e.message, true);
+        }
+      }
+      function closeModal() {
+        $("modal").close();
+      }
+      async function openOrder() {
+        try {
+          const [c, i] = await Promise.all([
+            api("/erp/customers"),
+            api("/erp/inventory?status=available"),
+          ]);
+          $("modal-content").innerHTML =
+            `<div class="dialog-head"><h2>新建合成订单</h2><button class="icon-btn" onclick="closeModal()"><i data-lucide="x" size="15"></i></button></div><form id="order-form"><div class="dialog-body form-grid"><div class="field"><label>客户</label><select name="customer_id" required>${c.items.map((x) => `<option value="${x.id}">${esc(x.name)} · ${esc(x.risk_level)}</option>`).join("")}</select></div><div class="field"><label>可用账号库存</label><select name="inventory_id" required>${i.items.map((x) => `<option value="${x.id}">${esc(x.sku)} · ${money(x.daily_price)}/天</option>`).join("")}</select></div><div class="field"><label>租用天数</label><input name="rental_days" type="number" min="1" max="90" value="2" required></div><div class="field"><label>渠道</label><select name="channel"><option>AI 导购</option><option>私域社群</option><option>老客转介绍</option></select></div></div><div class="dialog-actions"><button type="button" class="btn secondary" onclick="closeModal()">取消</button><button class="btn" type="submit">创建并校验</button></div></form>`;
+          $("order-form").onsubmit = submitOrder;
+          $("modal").showModal();
+          icons();
+        } catch (e) {
+          notice(e.message, true);
+        }
+      }
+      async function submitOrder(e) {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        try {
+          await api("/erp/orders", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Idempotency-Key": crypto.randomUUID(),
+            },
+            body: JSON.stringify({
+              customer_id: f.get("customer_id"),
+              inventory_id: f.get("inventory_id"),
+              rental_days: Number(f.get("rental_days")),
+              channel: f.get("channel"),
+            }),
+          });
+          closeModal();
+          notice("订单已创建，库存状态已同步");
+          render();
+        } catch (err) {
+          notice(err.message, true);
+        }
+      }
+      async function openCase() {
+        try {
+          const o = await api("/erp/orders");
+          $("modal-content").innerHTML =
+            `<div class="dialog-head"><h2>创建合成售后工单</h2><button class="icon-btn" onclick="closeModal()"><i data-lucide="x" size="15"></i></button></div><form id="case-form"><div class="dialog-body form-grid"><div class="field full"><label>关联订单</label><select name="order_id" required>${o.items.map((x) => `<option value="${x.id}">${esc(x.order_no)} · ${esc(x.customer_name)}</option>`).join("")}</select></div><div class="field"><label>问题主题</label><input name="subject" value="申请退款" required></div><div class="field"><label>退款金额</label><input name="requested_refund" type="number" min="0" value="98"></div><div class="field full"><label>客户反馈</label><textarea name="content" required>账号登录异常，希望核验并申请退款。</textarea></div></div><div class="dialog-actions"><button type="button" class="btn secondary" onclick="closeModal()">取消</button><button class="btn" type="submit">AI 分流并建单</button></div></form>`;
+          $("case-form").onsubmit = submitCase;
+          $("modal").showModal();
+          icons();
+        } catch (e) {
+          notice(e.message, true);
+        }
+      }
+      async function submitCase(e) {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        try {
+          await api("/erp/cases", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Idempotency-Key": crypto.randomUUID(),
+            },
+            body: JSON.stringify({
+              order_id: f.get("order_id"),
+              subject: f.get("subject"),
+              content: f.get("content"),
+              requested_refund: Number(f.get("requested_refund")),
+              channel: "web",
+            }),
+          });
+          closeModal();
+          notice("工单已分类并进入审批队列");
+          render();
+        } catch (err) {
+          notice(err.message, true);
+        }
+      }
+      document
+        .querySelectorAll(".nav")
+        .forEach((n) => (n.onclick = () => switchView(n.dataset.view)));
+      $("refresh").onclick = () => render();
+      $("modal").onclick = (e) => {
+        if (e.target === $("modal")) closeModal();
+      };
+      (async () => {
+        try {
+          await seed();
+          await render();
+        } catch (e) {
+          $("content").innerHTML = `<div class="empty">${esc(e.message)}</div>`;
+          notice(e.message, true);
+        }
+        icons();
+      })();
+    </script>
+  </body>
 </html>

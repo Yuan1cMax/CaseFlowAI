@@ -1,4 +1,4 @@
-"""Delivery worker for CaseFlow AI.
+"""Durable integration worker for TradeOps ERP.
 
 The database is the source of truth. This process polls for durable pending jobs,
 so a Redis or process restart cannot lose a CRM delivery request.
@@ -14,7 +14,7 @@ from main import initialize_database, process_one_delivery_job
 
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"), format="%(asctime)s %(levelname)s %(message)s")
-logger = logging.getLogger("caseflow.worker")
+logger = logging.getLogger("tradeops.worker")
 POLL_SECONDS = float(os.getenv("WORKER_POLL_SECONDS", "2"))
 
 

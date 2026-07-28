@@ -1,3 +1,10 @@
 {"customer_id":"synthetic-customer-01","subject":"退款投诉","content":"商品破损，我要求退款并准备投诉","channel":"web"}
 {"customer_id":"synthetic-customer-02","subject":"物流进度","content":"想了解物流进度","channel":"web"}
 {"customer_id":"synthetic-customer-03","subject":"质量问题","content":"收到商品时发现损坏，已拍照","channel":"email"}
+{"customer_id":"synthetic-customer-04","subject":"客服态度投诉","content":"客服态度很差，我要求主管介入处理","channel":"phone"}
+{"customer_id":"synthetic-customer-05","subject":"舆情风险","content":"如果今天没有处理，我会曝光并起诉","channel":"web"}
+{"customer_id":"synthetic-customer-06","subject":"物流延迟","content":"快递延迟两天，请核验当前物流轨迹","channel":"email"}
+{"customer_id":"synthetic-customer-07","subject":"扣款异常","content":"订单扣款异常，需要人工核验并申请赔偿","channel":"web"}
+{"customer_id":"synthetic-customer-08","subject":"产品故障","content":"刚收到就无法正常使用，已经上传故障图片","channel":"web"}
+{"customer_id":"synthetic-customer-09","subject":"转人工咨询","content":"请安排人工客服跟进我的订单问题","channel":"phone"}
+{"customer_id":"synthetic-customer-10","subject":"一般反馈","content":"希望页面能增加夜间模式","channel":"web"}

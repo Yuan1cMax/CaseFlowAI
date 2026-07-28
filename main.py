@@ -1,4 +1,4 @@
-"""CaseFlow AI: complaint triage, human review, and CRM delivery demo."""
+"""ServiceOps AI: customer-service triage, human review, and CRM delivery demo."""
 
 from __future__ import annotations
 
@@ -35,6 +35,7 @@ logger = logging.getLogger("caseflow")
 
 DATABASE_URL = os.getenv("CASEFLOW_DATABASE_URL", "").strip()
 DATABASE_PATH = Path(os.getenv("CASEFLOW_DATABASE", "caseflow.db"))
+DEMO_DATA_PATH = Path(__file__).with_name("data") / "synthetic_tickets.jsonl"
 MAX_JOB_ATTEMPTS = int(os.getenv("MAX_JOB_ATTEMPTS", "3"))
 CRM_WEBHOOK_URL = os.getenv("CRM_WEBHOOK_URL", "").strip()
 CRM_WEBHOOK_TOKEN = os.getenv("CRM_WEBHOOK_TOKEN", "").strip()
@@ -80,6 +81,24 @@ class TicketResponse(BaseModel):
     sop_citations: list[str]
     draft_reply: str
     delivery_job_id: str | None
+
+
+class DashboardTicket(BaseModel):
+    """Safe dashboard projection for public synthetic-demo records only."""
+
+    id: str
+    subject: str
+    content_preview: str
+    channel: str
+    status: TicketStatus
+    priority: Priority
+    category: str
+    confidence: float
+    requires_human_review: bool
+    review_reason: str
+    sop_citation: str
+    draft_reply: str
+    created_at: str
 
 
 class AnalysisPayload(BaseModel):
@@ -342,6 +361,24 @@ def ticket_response(db: DatabaseConnection, ticket_id: str) -> TicketResponse:
     )
 
 
+def dashboard_ticket(row: Any) -> DashboardTicket:
+    return DashboardTicket(
+        id=row["id"],
+        subject=row["subject"],
+        content_preview=row["content"][:140],
+        channel=row["channel"],
+        status=TicketStatus(row["status"]),
+        priority=Priority(row["priority"]),
+        category=row["category"],
+        confidence=row["confidence"],
+        requires_human_review=bool(row["requires_human_review"]),
+        review_reason=row["review_reason"],
+        sop_citation=row["sop_id"],
+        draft_reply=row["draft_reply"],
+        created_at=row["created_at"],
+    )
+
+
 class CrmAdapter(Protocol):
     def upsert(self, ticket_id: str, payload: dict[str, Any]) -> str: ...
 
@@ -396,7 +433,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="CaseFlow AI", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="ServiceOps AI", version="0.2.0", lifespan=lifespan)
 
 
 @app.middleware("http")
@@ -419,6 +456,48 @@ def health() -> dict[str, str]:
 @app.get("/", include_in_schema=False)
 def dashboard() -> FileResponse:
     return FileResponse(Path(__file__).with_name("index.html"))
+
+
+@app.get("/dashboard/summary")
+def dashboard_summary() -> dict[str, Any]:
+    """Return only synthetic demo records, even when production data shares the database."""
+    with database() as db:
+        rows = db.execute(
+            "SELECT * FROM tickets WHERE customer_id LIKE ? ORDER BY created_at DESC LIMIT 30",
+            ("synthetic-%",),
+        ).fetchall()
+    tickets = [dashboard_ticket(row).model_dump(mode="json") for row in rows]
+    counts = {status.value: 0 for status in TicketStatus}
+    priorities = {priority.value: 0 for priority in Priority}
+    for ticket in tickets:
+        counts[ticket["status"]] += 1
+        priorities[ticket["priority"]] += 1
+    return {
+        "scope": "synthetic-demo-only",
+        "tickets": tickets,
+        "counts": counts,
+        "priorities": priorities,
+        "requires_review": sum(ticket["requires_human_review"] for ticket in tickets),
+    }
+
+
+@app.post("/demo/seed")
+def seed_synthetic_demo_data() -> dict[str, Any]:
+    """Idempotently load the checked-in synthetic cases for a reproducible public demo."""
+    if not PUBLIC_DEMO_MODE:
+        raise HTTPException(status_code=404, detail="public demo seed is disabled")
+    if not DEMO_DATA_PATH.exists():
+        raise HTTPException(status_code=500, detail="synthetic demo data is unavailable")
+
+    loaded = 0
+    for index, line in enumerate(DEMO_DATA_PATH.read_text(encoding="utf-8").splitlines(), start=1):
+        if not line.strip():
+            continue
+        payload = TicketCreate.model_validate_json(line)
+        create_ticket(payload, idempotency_key=f"serviceops-demo-v1-{index:02d}")
+        loaded += 1
+    summary = dashboard_summary()
+    return {"loaded": loaded, "scope": summary["scope"], "summary": summary}
 
 
 @app.post("/tickets", response_model=TicketResponse, status_code=status.HTTP_201_CREATED)

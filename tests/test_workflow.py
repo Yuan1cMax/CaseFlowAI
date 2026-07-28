@@ -118,3 +118,28 @@ def test_public_demo_approval_is_limited_to_synthetic_tickets(monkeypatch, tmp_p
             json={"customer_id": "customer-01", "subject": "退款", "content": "申请退款", "channel": "web"},
         ).json()
         assert demo_client.post(f"/demo/tickets/{non_synthetic['id']}/approve").status_code == 403
+
+
+def test_public_demo_seed_and_dashboard_hide_non_synthetic_records(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("CASEFLOW_DATABASE", str(tmp_path / "caseflow-dashboard.db"))
+    monkeypatch.setenv("PUBLIC_DEMO_MODE", "1")
+    monkeypatch.delenv("CASEFLOW_ADMIN_TOKEN", raising=False)
+    import main
+    importlib.reload(main)
+    with TestClient(main.app) as demo_client:
+        seeded = demo_client.post("/demo/seed")
+        assert seeded.status_code == 200
+        assert seeded.json()["loaded"] == 10
+
+        demo_client.post(
+            "/tickets",
+            headers={"Idempotency-Key": "non-synthetic-dashboard-key"},
+            json={"customer_id": "private-customer-01", "subject": "退款", "content": "申请退款", "channel": "web"},
+        )
+        summary = demo_client.get("/dashboard/summary")
+        assert summary.status_code == 200
+        body = summary.json()
+        assert body["scope"] == "synthetic-demo-only"
+        assert len(body["tickets"]) == 10
+        assert all(ticket["id"] for ticket in body["tickets"])
+        assert body["counts"]["pending_review"] >= 1

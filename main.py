@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import logging
 import os
@@ -14,18 +15,30 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, Protocol
 
+import httpx
 from fastapi import FastAPI, Header, HTTPException, Request, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
+
+try:
+    import psycopg
+    from psycopg.rows import dict_row
+except ImportError:  # SQLite-only local development remains supported.
+    psycopg = None
+    dict_row = None
 
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"), format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("caseflow")
 
+DATABASE_URL = os.getenv("CASEFLOW_DATABASE_URL", "").strip()
 DATABASE_PATH = Path(os.getenv("CASEFLOW_DATABASE", "caseflow.db"))
 MAX_JOB_ATTEMPTS = int(os.getenv("MAX_JOB_ATTEMPTS", "3"))
+CRM_WEBHOOK_URL = os.getenv("CRM_WEBHOOK_URL", "").strip()
+CRM_WEBHOOK_TOKEN = os.getenv("CRM_WEBHOOK_TOKEN", "").strip()
+CASEFLOW_ADMIN_TOKEN = os.getenv("CASEFLOW_ADMIN_TOKEN", "").strip()
 
 
 class Priority(StrEnum):
@@ -66,6 +79,16 @@ class TicketResponse(BaseModel):
     sop_citations: list[str]
     draft_reply: str
     delivery_job_id: str | None
+
+
+class AnalysisPayload(BaseModel):
+    category: str = Field(pattern="^(refund|delivery|quality|service|other)$")
+    priority: Priority
+    sentiment: str = Field(pattern="^(neutral|negative)$")
+    confidence: float = Field(ge=0, le=1)
+    entities: dict[str, str] = Field(default_factory=dict)
+    requires_human_review: bool
+    review_reason: str = ""
 
 
 @dataclass(frozen=True)
@@ -121,6 +144,63 @@ class RuleBasedAnalyzer:
         )
 
 
+class Analyzer(Protocol):
+    def analyze(self, subject: str, content: str) -> Analysis: ...
+
+
+class OpenAICompatibleAnalyzer:
+    """Adapter for an OpenAI-compatible structured-output endpoint.
+
+    The response is validated before it can influence workflow routing. This
+    prevents malformed model output from silently bypassing human review.
+    """
+
+    SYSTEM_PROMPT = """You classify a customer complaint for a workflow system.
+Return JSON only with: category(refund|delivery|quality|service|other),
+priority(low|medium|high|critical), sentiment(neutral|negative), confidence(0-1),
+entities(object of string values), requires_human_review(boolean), review_reason(string).
+Refund, compensation, legal, safety, reputation, or fraud topics require human review."""
+
+    def __init__(self, base_url: str, api_key: str, model: str) -> None:
+        self.url = f"{base_url.rstrip('/')}/chat/completions"
+        self.api_key = api_key
+        self.model = model
+
+    def analyze(self, subject: str, content: str) -> Analysis:
+        try:
+            response = httpx.post(
+                self.url,
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                json={
+                    "model": self.model,
+                    "temperature": 0,
+                    "response_format": {"type": "json_object"},
+                    "messages": [
+                        {"role": "system", "content": self.SYSTEM_PROMPT},
+                        {"role": "user", "content": json.dumps({"subject": subject, "content": content}, ensure_ascii=False)},
+                    ],
+                },
+                timeout=20,
+            )
+            response.raise_for_status()
+            raw = response.json()["choices"][0]["message"]["content"]
+            payload = AnalysisPayload.model_validate_json(raw)
+        except (httpx.HTTPError, KeyError, TypeError, ValueError, ValidationError) as exc:
+            raise RuntimeError("structured analyzer unavailable or invalid") from exc
+        return Analysis(**payload.model_dump())
+
+
+def build_analyzer() -> Analyzer:
+    if os.getenv("ANALYZER_MODE", "rules").lower() != "openai_compatible":
+        return RuleBasedAnalyzer()
+    base_url = os.getenv("LLM_BASE_URL", "").strip()
+    api_key = os.getenv("LLM_API_KEY", "").strip()
+    model = os.getenv("LLM_MODEL", "").strip()
+    if not (base_url and api_key and model):
+        raise RuntimeError("OpenAI-compatible analyzer requires LLM_BASE_URL, LLM_API_KEY, and LLM_MODEL")
+    return OpenAICompatibleAnalyzer(base_url, api_key, model)
+
+
 SOP_RULES = {
     "refund": ("SOP-REFUND-01", "核验订单与支付状态；未经人工审核不得承诺金额或时限。"),
     "delivery": ("SOP-DELIVERY-02", "核验物流轨迹，向客户说明下一次可查询时间。"),
@@ -140,17 +220,50 @@ def draft_reply(analysis: Analysis, sop_guidance: str) -> str:
     return f"已收到您的反馈，我们会根据流程核验并尽快跟进。{sop_guidance}"
 
 
+class DatabaseConnection:
+    """Small DB-API compatibility layer for SQLite demos and PostgreSQL deploys."""
+
+    def __init__(self, connection: Any, postgres: bool) -> None:
+        self.connection = connection
+        self.postgres = postgres
+
+    def execute(self, query: str, parameters: tuple[Any, ...] = ()) -> Any:
+        if self.postgres:
+            if query == "BEGIN IMMEDIATE":
+                query = "BEGIN"
+            query = query.replace("?", "%s")
+        return self.connection.execute(query, parameters)
+
+    def executescript(self, script: str) -> None:
+        if not self.postgres:
+            self.connection.executescript(script)
+            return
+        for statement in script.split(";"):
+            if statement.strip():
+                self.connection.execute(statement)
+
+    def close(self) -> None:
+        self.connection.close()
+
+
 @contextmanager
-def database() -> Iterator[sqlite3.Connection]:
-    connection = sqlite3.connect(DATABASE_PATH, timeout=5, isolation_level=None)
-    connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA foreign_keys = ON")
-    connection.execute("PRAGMA journal_mode = WAL")
-    connection.execute("PRAGMA busy_timeout = 5000")
+def database() -> Iterator[DatabaseConnection]:
+    if DATABASE_URL.startswith(("postgres://", "postgresql://")):
+        if psycopg is None:
+            raise RuntimeError("psycopg is required when CASEFLOW_DATABASE_URL targets PostgreSQL")
+        connection = psycopg.connect(DATABASE_URL, row_factory=dict_row, autocommit=True)
+        wrapped = DatabaseConnection(connection, postgres=True)
+    else:
+        connection = sqlite3.connect(DATABASE_PATH, timeout=5, isolation_level=None)
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("PRAGMA journal_mode = WAL")
+        connection.execute("PRAGMA busy_timeout = 5000")
+        wrapped = DatabaseConnection(connection, postgres=False)
     try:
-        yield connection
+        yield wrapped
     finally:
-        connection.close()
+        wrapped.close()
 
 
 def utc_now() -> str:
@@ -203,14 +316,14 @@ def initialize_database() -> None:
         )
 
 
-def audit(db: sqlite3.Connection, ticket_id: str, event_type: str, actor: str, payload: dict[str, Any]) -> None:
+def audit(db: DatabaseConnection, ticket_id: str, event_type: str, actor: str, payload: dict[str, Any]) -> None:
     db.execute(
         "INSERT INTO audit_events VALUES (?, ?, ?, ?, ?, ?)",
         (str(uuid.uuid4()), ticket_id, event_type, actor, json.dumps(payload, ensure_ascii=False), utc_now()),
     )
 
 
-def ticket_response(db: sqlite3.Connection, ticket_id: str) -> TicketResponse:
+def ticket_response(db: DatabaseConnection, ticket_id: str) -> TicketResponse:
     row = db.execute("SELECT * FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
     if row is None:
         raise HTTPException(status_code=404, detail="ticket not found")
@@ -228,6 +341,10 @@ def ticket_response(db: sqlite3.Connection, ticket_id: str) -> TicketResponse:
     )
 
 
+class CrmAdapter(Protocol):
+    def upsert(self, ticket_id: str, payload: dict[str, Any]) -> str: ...
+
+
 class MockCrmAdapter:
     """A replaceable CRM adapter; no external customer records are used in this demo."""
 
@@ -238,8 +355,36 @@ class MockCrmAdapter:
         return f"demo-crm-{digest}"
 
 
-analyzer = RuleBasedAnalyzer()
-crm = MockCrmAdapter()
+class HttpCrmAdapter:
+    """Sends an idempotent delivery request to a CRM/RPA integration webhook."""
+
+    def __init__(self, webhook_url: str, token: str) -> None:
+        self.webhook_url = webhook_url
+        self.token = token
+
+    def upsert(self, ticket_id: str, payload: dict[str, Any]) -> str:
+        headers = {"Idempotency-Key": ticket_id}
+        if self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
+        response = httpx.post(
+            self.webhook_url,
+            headers=headers,
+            json={"ticket_id": ticket_id, **payload},
+            timeout=10,
+        )
+        response.raise_for_status()
+        reference = response.json().get("reference")
+        if not isinstance(reference, str) or not reference:
+            raise RuntimeError("CRM webhook response missing reference")
+        return reference
+
+
+def build_crm_adapter() -> CrmAdapter:
+    return HttpCrmAdapter(CRM_WEBHOOK_URL, CRM_WEBHOOK_TOKEN) if CRM_WEBHOOK_URL else MockCrmAdapter()
+
+
+analyzer = build_analyzer()
+crm = build_crm_adapter()
 _init_lock = threading.Lock()
 
 
@@ -283,7 +428,11 @@ def create_ticket(payload: TicketCreate, idempotency_key: str = Header(min_lengt
             db.execute("COMMIT")
             return ticket_response(db, existing["id"])
 
-        analysis = analyzer.analyze(payload.subject, payload.content)
+        try:
+            analysis = analyzer.analyze(payload.subject, payload.content)
+        except RuntimeError as exc:
+            db.execute("ROLLBACK")
+            raise HTTPException(status_code=503, detail="classification service unavailable") from exc
         sop_id, guidance = retrieve_sop(analysis.category)
         ticket_id = str(uuid.uuid4())
         now = utc_now()
@@ -321,8 +470,14 @@ def get_audit(ticket_id: str) -> list[dict[str, Any]]:
     return [{"event_type": row["event_type"], "actor": row["actor"], "payload": json.loads(row["payload_json"]), "created_at": row["created_at"]} for row in rows]
 
 
+def require_operator(token: str | None) -> None:
+    if CASEFLOW_ADMIN_TOKEN and (not token or not hmac.compare_digest(token, CASEFLOW_ADMIN_TOKEN)):
+        raise HTTPException(status_code=401, detail="valid X-Admin-Token required")
+
+
 @app.post("/tickets/{ticket_id}/review", response_model=TicketResponse)
-def review_ticket(ticket_id: str, decision: ReviewDecision):
+def review_ticket(ticket_id: str, decision: ReviewDecision, admin_token: str | None = Header(default=None, alias="X-Admin-Token")):
+    require_operator(admin_token)
     with database() as db:
         db.execute("BEGIN IMMEDIATE")
         row = db.execute("SELECT status FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
@@ -345,8 +500,7 @@ def review_ticket(ticket_id: str, decision: ReviewDecision):
         return ticket_response(db, ticket_id)
 
 
-@app.post("/jobs/run-once")
-def run_one_delivery_job() -> dict[str, str]:
+def process_one_delivery_job() -> dict[str, str]:
     """Claim one job atomically. A production worker invokes the same operation on a schedule."""
     with database() as db:
         db.execute("BEGIN IMMEDIATE")
@@ -385,3 +539,9 @@ def run_one_delivery_job() -> dict[str, str]:
         audit(db, job["ticket_id"], "crm_delivered", "worker", {"job_id": job["id"], "crm_reference": crm_ref})
         db.execute("COMMIT")
     return {"result": "delivered", "job_id": job["id"], "crm_reference": crm_ref}
+
+
+@app.post("/jobs/run-once")
+def run_one_delivery_job(admin_token: str | None = Header(default=None, alias="X-Admin-Token")) -> dict[str, str]:
+    require_operator(admin_token)
+    return process_one_delivery_job()

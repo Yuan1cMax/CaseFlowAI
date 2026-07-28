@@ -1,10 +1,46 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: caseflow
+      POSTGRES_USER: caseflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - caseflow-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U caseflow -d caseflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   caseflow-api:
     build: .
     ports:
       - "8010:8010"
-    volumes:
-      - ./data:/app/data
     environment:
-      CASEFLOW_DATABASE: /app/data/caseflow.db
+      CASEFLOW_DATABASE_URL: postgresql://caseflow:${POSTGRES_PASSWORD}@postgres:5432/caseflow
+      CASEFLOW_ADMIN_TOKEN: ${CASEFLOW_ADMIN_TOKEN:?Set CASEFLOW_ADMIN_TOKEN in .env}
+      ANALYZER_MODE: ${ANALYZER_MODE:-rules}
+      CRM_WEBHOOK_URL: ${CRM_WEBHOOK_URL:-}
+      CRM_WEBHOOK_TOKEN: ${CRM_WEBHOOK_TOKEN:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
+
+  caseflow-worker:
+    build: .
+    command: ["python", "worker.py"]
+    environment:
+      CASEFLOW_DATABASE_URL: postgresql://caseflow:${POSTGRES_PASSWORD}@postgres:5432/caseflow
+      CRM_WEBHOOK_URL: ${CRM_WEBHOOK_URL:-}
+      CRM_WEBHOOK_TOKEN: ${CRM_WEBHOOK_TOKEN:-}
+      WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS:-2}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  caseflow-postgres:

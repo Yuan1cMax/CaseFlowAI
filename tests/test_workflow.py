@@ -1,3 +1,4 @@
+import importlib
 from pathlib import Path
 
 import pytest
@@ -7,7 +8,11 @@ from fastapi.testclient import TestClient
 @pytest.fixture()
 def client(monkeypatch, tmp_path: Path):
     monkeypatch.setenv("CASEFLOW_DATABASE", str(tmp_path / "caseflow-test.db"))
+    monkeypatch.delenv("CASEFLOW_DATABASE_URL", raising=False)
+    monkeypatch.delenv("CASEFLOW_ADMIN_TOKEN", raising=False)
+    monkeypatch.delenv("CASEFLOW_FORCE_CRM_FAILURE", raising=False)
     import main
+    importlib.reload(main)
 
     with TestClient(main.app) as test_client:
         yield test_client
@@ -57,3 +62,37 @@ def test_low_risk_ticket_auto_queues_delivery(client: TestClient):
     assert ticket["requires_human_review"] is False
     assert ticket["status"] == "approved"
     assert ticket["delivery_job_id"]
+
+
+def test_operator_token_protects_review_and_delivery(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("CASEFLOW_DATABASE", str(tmp_path / "caseflow-token.db"))
+    monkeypatch.setenv("CASEFLOW_ADMIN_TOKEN", "review-secret")
+    import main
+    importlib.reload(main)
+    with TestClient(main.app) as protected_client:
+        ticket = protected_client.post(
+            "/tickets",
+            headers={"Idempotency-Key": "protected-ticket-001"},
+            json={"customer_id": "synthetic-customer-04", "subject": "退款", "content": "申请退款", "channel": "web"},
+        ).json()
+        blocked = protected_client.post(f"/tickets/{ticket['id']}/review", json={"decision": "approve", "reviewer": "reviewer"})
+        assert blocked.status_code == 401
+        accepted = protected_client.post(
+            f"/tickets/{ticket['id']}/review",
+            headers={"X-Admin-Token": "review-secret"},
+            json={"decision": "approve", "reviewer": "reviewer"},
+        )
+        assert accepted.status_code == 200
+
+
+def test_delivery_failure_retries_then_sets_terminal_ticket_status(client: TestClient, monkeypatch):
+    ticket = client.post(
+        "/tickets",
+        headers={"Idempotency-Key": "failure-ticket-key-1"},
+        json={"customer_id": "synthetic-customer-05", "subject": "物流咨询", "content": "查询物流状态", "channel": "web"},
+    ).json()
+    monkeypatch.setenv("CASEFLOW_FORCE_CRM_FAILURE", "1")
+    for _ in range(3):
+        failed = client.post("/jobs/run-once")
+        assert failed.status_code == 502
+    assert client.get(f"/tickets/{ticket['id']}").json()["status"] == "delivery_failed"

@@ -1,0 +1,10 @@
+{"subject":"退款投诉","content":"商品破损，我要求退款并准备投诉","category":"refund","priority":"high","requires_human_review":true}
+{"subject":"赔偿申请","content":"订单扣款异常，需要赔偿","category":"refund","priority":"high","requires_human_review":true}
+{"subject":"物流延迟","content":"快递已经延迟两天还没收到","category":"delivery","priority":"medium","requires_human_review":false}
+{"subject":"物流进度","content":"请问订单物流现在到哪里了","category":"delivery","priority":"medium","requires_human_review":false}
+{"subject":"质量破损","content":"收到商品发现质量问题和破损","category":"quality","priority":"medium","requires_human_review":false}
+{"subject":"产品故障","content":"刚收到就无法正常使用，可能故障","category":"quality","priority":"medium","requires_human_review":false}
+{"subject":"客服投诉","content":"客服态度很差，我要投诉","category":"service","priority":"high","requires_human_review":true}
+{"subject":"转人工","content":"请安排人工客服跟进","category":"service","priority":"medium","requires_human_review":false}
+{"subject":"舆情风险","content":"如果不处理我会曝光并起诉","category":"other","priority":"critical","requires_human_review":true}
+{"subject":"一般反馈","content":"希望页面能增加夜间模式","category":"other","priority":"medium","requires_human_review":false}

@@ -164,3 +164,9 @@ def test_postgres_compatibility_escapes_literal_percent():
     query, parameters = connection.execute("SELECT 1 WHERE id LIKE 'SYN-%' AND status = ?", ("active",))
     assert query == "SELECT 1 WHERE id LIKE 'SYN-%%' AND status = %s"
     assert parameters == ("active",)
+
+
+def test_forwarded_prefix_is_used_by_openapi_docs(erp_client: TestClient):
+    response = erp_client.get("/docs", headers={"X-Forwarded-Prefix": "/tradeops"})
+    assert response.status_code == 200
+    assert "url: '/tradeops/openapi.json'" in response.text

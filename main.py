@@ -443,6 +443,9 @@ app = FastAPI(title="TradeOps ERP", version="1.0.0", lifespan=lifespan)
 @app.middleware("http")
 async def request_context(request: Request, call_next):
     request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+    forwarded_prefix = request.headers.get("X-Forwarded-Prefix", "").rstrip("/")
+    if forwarded_prefix.startswith("/"):
+        request.scope["root_path"] = forwarded_prefix
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
     logger.info("request_id=%s method=%s path=%s status=%s", request_id, request.method, request.url.path, response.status_code)

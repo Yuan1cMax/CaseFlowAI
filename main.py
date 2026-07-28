@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from fastapi import FastAPI, Header, HTTPException, Request, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 
@@ -266,6 +267,11 @@ def health() -> dict[str, str]:
     with database() as db:
         db.execute("SELECT 1").fetchone()
     return {"status": "ok", "database": "ok", "mode": "synthetic-demo"}
+
+
+@app.get("/", include_in_schema=False)
+def dashboard() -> FileResponse:
+    return FileResponse(Path(__file__).with_name("index.html"))
 
 
 @app.post("/tickets", response_model=TicketResponse, status_code=status.HTTP_201_CREATED)
